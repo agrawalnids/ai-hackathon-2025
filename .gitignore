@@ -401,3 +401,4 @@ FodyWeavers.xsd
 #ErrorLogs
 Logs/
 chroma-store
+Hackathon2025/appsettings.Development.json
