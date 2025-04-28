@@ -1,0 +1,25 @@
+﻿using Microsoft.Identity.Client.Platforms.Features.DesktopOs.Kerberos;
+using OpenAI.Chat;
+using OpenAI.Embeddings;
+using OpenAI;
+using System.ClientModel;
+using System.Text.Json;
+using Azure;
+
+namespace Hackathon2025.Abstractions
+{
+    public class AgentService
+    {
+        private readonly HttpClient _httpClient;
+        private readonly IConfiguration _configuration;
+        private readonly VectorStoreService _vectorStoreService;
+
+
+        public AgentService(HttpClient httpClient, IConfiguration configuration, VectorStoreService vectorStoreService)
+        {
+            _httpClient = httpClient;
+            _configuration = configuration;
+            _vectorStoreService = vectorStoreService;
+        }
+    }
+}

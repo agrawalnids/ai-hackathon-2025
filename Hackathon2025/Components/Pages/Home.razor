@@ -1,0 +1,92 @@
+﻿@page "/"
+@using Hackathon2025.Abstractions
+@using LangChain.Providers
+@using Microsoft.SemanticKernel
+@using OpenAI;
+@using OpenAI.Chat;
+@using System.ClientModel;
+@using System.Text.Json;
+@using System.ComponentModel.DataAnnotations
+
+@inject AgentService AgentService
+@inject VectorStoreService VectorStoreService
+@inject IConfiguration _configuration;
+
+<PageTitle>Home</PageTitle>
+
+@if (IsLoading)
+{
+    <LoadingOverlay />
+}
+else
+{
+    if (!IsOnboardingComplete)
+    {
+        <MudText Typo="Typo.h2" Align="Align.Center">Hey there
+            <MudIcon Icon="@Icons.Material.Filled.WavingHand" Size="Size.Large" />
+        </MudText>
+
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mt-4">Happy to see you here. Let's make this pause count.</MudText>
+
+        <MudTextField @bind-Value="UserProfileName" @bind-Value:after="CreateProfileNameCookie" Label="What can I call you?" Variant="Variant.Text" Class="mt-4"></MudTextField>
+
+        if (!string.IsNullOrEmpty(UserProfileName))
+        {
+            <MudText Align="Align.Center" Class="mt-4">
+                <MudButton Href="/onboarding"
+                           Variant="Variant.Filled"
+                           Color="Color.Primary">
+                    Begin Onboarding
+                </MudButton>
+            </MudText>
+        }
+    }
+    else
+    {
+        <MudText Typo="Typo.h2" Align="Align.Center">Welcome back @UserProfileName
+            <MudIcon Icon="@Icons.Material.Filled.WavingHand" Size="Size.Large" />
+        </MudText>
+
+        <MudText Typo="Typo.h4" Align="Align.Center" Class="mt-4">Glad to see you back. Let's make this pause count.</MudText>
+
+        <MudText Align="Align.Center" Class="mt-4">
+            <MudButton Href="/experience"
+            Variant="Variant.Filled"
+            Color="Color.Primary">
+                Continue experience
+            </MudButton>
+        </MudText>
+    }
+}
+
+@code {
+    private bool IsLoading { get; set; } = true;
+    private bool IsOnboardingComplete { get; set; } = false;
+
+    private string UserProfileName { get; set; } = string.Empty;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Logic to execute on page load
+            //await InitializePageAsync();
+
+            // Check if onboarding is already complete or not
+            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
+            IsOnboardingComplete = cookieValue == "true";
+
+            //Get user profile name
+            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+            UserProfileName = profileName;
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+
+    private async Task CreateProfileNameCookie()
+    {
+        // Save cookie with selected userprofilename
+        await JSRuntime.InvokeVoidAsync("setCookie", "profileName", UserProfileName, "365");
+    }
+}

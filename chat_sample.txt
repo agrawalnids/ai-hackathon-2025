@@ -1,0 +1,33 @@
+Greeting: Hello! Nice to meet you.
+Questions:
+  - Question: What activities bring you the most joy or relaxation?
+painting
+  - Question: Are there any hobbies or interests you dedicate your free time to?
+yes, i go for bowling
+  - Question: Is there a genre of books, movies, or music that you prefer?
+I love non-fiction books, sci-fi movies, and pop & bollywood music
+  - Question: Do you find yourself energized in social settings or in peaceful solitude?
+alone for sure. i think i have some social anxiety
+  - Question: Are there any particular experiences or achievements that you're especially proud of?
+winning flat race in school
+Thank you so much for sharing! Here's a summary of what I've learned about your preferences:
+
+```json
+{
+  "likes": {
+    "activities": ["painting", "bowling"],
+    "books": "non-fiction",
+    "movies": "sci-fi",
+    "music": ["pop", "bollywood"],
+    "solitude": true
+  },
+  "dislikes": {
+    "social settings": "due to social anxiety"
+  },
+  "interests": ["art", "sports", "competitive achievements"],
+  "proud_moments": "winning a flat race in school"
+}
+```
+
+Let me know if there's anything else you'd like to explore or talk about! ??
+Total tokens: 361

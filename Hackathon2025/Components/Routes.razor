@@ -1,0 +1,10 @@
+﻿@using Hackathon2025.Components.Layout
+
+<Router AppAssembly="typeof(Program).Assembly">
+    <Found Context="routeData">
+        <RouteView RouteData="routeData" DefaultLayout="typeof(Layout.MainLayout)" />
+    </Found>
+    <Navigating>
+        <LoadingOverlay />
+    </Navigating>
+</Router>

@@ -1,0 +1,140 @@
+﻿@page "/experience"
+@using Hackathon2025.Abstractions
+@using OpenAI
+@using OpenAI.Chat
+@using System.ClientModel
+@using System.Text.Json
+@inject AgentService AgentService
+@inject VectorStoreService VectorStoreService
+@inject IConfiguration Configuration;
+
+<PageTitle>Experience</PageTitle>
+
+@if (Model != null)
+{
+    <MudText Typo="Typo.h1" Align="Align.Center">@Model!.ExperienceGreeting</MudText>
+
+    <MudGrid Justify="Justify.Center" Class="mt-8">
+        @foreach (string mood in Model.ExperienceMoods)
+        {
+            <MudItem>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
+            </MudItem>
+        }
+    </MudGrid>
+}
+
+@code {
+    public ExperienceViewModel? Model { get; set; }
+    public ChatClient? Client { get; set; }
+    public ChatCompletionOptions? Options { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Model ??= new(); //init model
+        await Task.CompletedTask;
+    }
+
+    // protected override async Task OnAfterRenderAsync(bool firstRender)
+    // {
+    //     await JSRuntime.InvokeVoidAsync("updateBackgroundColor", "green");
+    // }
+
+    private async Task SetupExperience()
+    {
+        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
+        var credential = Configuration["GithubOpenAI:Token"];
+        var model = Configuration["GithubOpenAI:Model"];
+
+        //TODO add context from vectorDB
+        //get user likes & user dislikes from vector DB to add context
+        string userOnboardingInterestsContext = "Get all user likes and dislikes";
+
+        List<string> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userOnboardingInterestsContext);
+
+
+        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, visual (image or video URL) and a song (a YouTube link to it) that would improve the user's mood when they are feeling {0}. Based on the provided context, make the best recommendation.", Model.CurrentMood);
+
+
+        var openAIOptions = new OpenAIClientOptions()
+            {
+                Endpoint = new Uri(endpoint)
+            };
+
+        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
+
+        Model ??= new(); //init model
+
+        Model.ExperienceChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(experienceConfigPrompt),
+            new AssistantChatMessage(Model.ExperienceGreeting),
+            new UserChatMessage(Model.CurrentMood)
+        };
+
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""backgroundcolour"": { ""type"": ""string"" },
+                ""visual"": { ""type"": ""string"" },
+                ""song"": { ""type"": ""string"" }
+            },
+            ""required"": [""backgroundcolour"", ""visual"", ""song""],
+            ""additionalProperties"": false
+        }
+        ";
+
+        Options = new()
+            {
+                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                    jsonSchemaFormatName: "experience_setup",
+                    jsonSchema: BinaryData.FromString(jsonSchema),
+                    jsonSchemaIsStrict: true)
+            };
+
+        ChatCompletion response1 = await Client.CompleteChatAsync(Model.ExperienceChatHistory, Options);
+
+
+        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
+
+        var bgColor = structuredJson.RootElement.GetProperty("backgroundcolour").ToString();
+        await JSRuntime.InvokeVoidAsync("updateBackgroundColor", bgColor);
+
+        var visual = structuredJson.RootElement.GetProperty("visual").ToString();
+        var song = structuredJson.RootElement.GetProperty("song").ToString();
+
+
+
+
+        //TODO capture and save the question + response to vector DB to produce context
+
+
+        // await _vectorStoreService.SaveToVectorStoreAsync(userMessage, "user");
+        // await _vectorStoreService.SaveToVectorStoreAsync(result, "assistant");
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+
+    private async Task SetCurrentMood(string mood)
+    {
+        Model.CurrentMood = mood;
+
+        //Get experience set up based on mood + interests/likes
+        await SetupExperience();
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+    }
+
+
+    public class ExperienceViewModel
+    {
+        public List<ChatMessage>? ExperienceChatHistory { get; set; }
+        public string? ExperienceGreeting { get; set; } = "How are you feeling today?";
+        public List<string> ExperienceMoods { get; set; } = new List<string>() { "Fantastic", "Happy", "Neutral", "Not too bad", "Sad" };
+        public string? CurrentMood { get; set; }
+    }
+}

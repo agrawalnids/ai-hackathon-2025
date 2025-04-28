@@ -1,0 +1,294 @@
+﻿@page "/onboarding"
+@using Hackathon2025.Abstractions
+@using OpenAI
+@using OpenAI.Chat
+@using System.ClientModel
+@using System.Text.Json
+@inject AgentService AgentService
+@inject VectorStoreService VectorStoreService
+@inject IConfiguration Configuration;
+
+<PageTitle>Onboarding</PageTitle>
+
+@if (Model != null)
+{
+    if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
+    {
+        <MudText Typo="Typo.h1" Align="Align.Center">@Model!.OnboardingGreeting</MudText>
+    }
+
+    if (Model.OnboardingQuestions != null)
+    {
+        if (Model.CurrentQuestion != null)
+        {
+            <MudText Typo="Typo.h3" Align="Align.Center">@Model.CurrentQuestion</MudText>
+            <MudGrid Class="ma-2">
+                <MudItem xs="9">
+                    <MudTextField @bind-Value="Model.CurrentResponse" Variant="Variant.Outlined"></MudTextField>
+                </MudItem>
+                <MudItem xs="3">
+                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Color="Color.Primary" FullWidth="true" DropShadow="false" @onclick="PresentNextQuestion" Style="height: 100%;">Continue</MudButton>
+                </MudItem>
+            </MudGrid>
+        }
+
+        if (Model.IsOnboardingComplete)
+        {
+            <MudButton Href="/experience"
+            Variant="Variant.Filled"
+            Color="Color.Primary">
+                Proceed to Main Experience
+            </MudButton>
+        }
+    }
+}
+
+
+
+@code {
+
+    public OnboardingViewModel? Model { get; set; }
+    public ChatClient? Client { get; set; }
+    public ChatCompletionOptions? Options { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            //Get onboarding questions ready
+            await SetupOnboarding();
+        }
+    }
+
+    private async Task SetupOnboarding()
+    {
+        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
+        var credential = Configuration["GithubOpenAI:Token"];
+        var model = Configuration["GithubOpenAI:Model"];
+
+        var onboardingConfigPrompt = @"You are a Mental Health expert with over 20 years of experience.
+                Your goal is to understand the user's likes, dislikes, personal and professional interests.
+                Ask the user 5 questions that require less than 10 words to answer to achieve your goal. Start with a playful greeting and then provide the questions in a json array.
+        ";
+
+
+        var openAIOptions = new OpenAIClientOptions()
+            {
+                Endpoint = new Uri(endpoint)
+            };
+
+        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
+
+        Model ??= new(); //init model
+
+        Model.OnboardingChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(onboardingConfigPrompt),
+        };
+
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""greeting"": { ""type"": ""string"" },
+                ""questions"": {
+                    ""type"": ""array"",
+                    ""items"": {
+                        ""type"": ""object"",
+                        ""properties"": {
+                            ""question"": { ""type"": ""string"" }
+                        },
+                        ""required"": [""question""],
+                        ""additionalProperties"": false
+                    }
+                }
+            },
+            ""required"": [""greeting"", ""questions""],
+            ""additionalProperties"": false
+        }
+        ";
+
+        Options = new()
+        {
+            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "onboarding_questions",
+                jsonSchema: BinaryData.FromString(jsonSchema),
+                jsonSchemaIsStrict: true)
+        };
+
+        ChatCompletion response1 = await Client.CompleteChatAsync(Model.OnboardingChatHistory, Options);
+
+
+        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
+
+        Model.OnboardingGreeting = structuredJson.RootElement.GetProperty("greeting").ToString();
+
+        // Append the model response to the chat history.
+        Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.OnboardingGreeting));
+
+
+        JsonElement.ArrayEnumerator onboardingQuestionsJson = structuredJson.RootElement.GetProperty("questions").EnumerateArray();
+        Model.OnboardingQuestions = new List<string>();
+
+        foreach (JsonElement questionElement in onboardingQuestionsJson)
+        {
+            var question = questionElement.GetProperty("question").ToString();
+
+            Model.OnboardingQuestions.Add(question);
+        }
+
+        Model.CurrentQuestion = Model.OnboardingQuestions.FirstOrDefault();
+
+
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    private async Task PresentNextQuestion()
+    {
+        //TODOfade card out
+
+
+        Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.CurrentQuestion));
+        // Append user response to the chat history.
+        Model.OnboardingChatHistory.Add(new UserChatMessage(Model.CurrentResponse));
+
+        Model.CurrentResponse = string.Empty; //clear textbox
+        Model.Counter++;
+
+        if (Model.Counter < 5)
+        {
+            //fade card back in
+
+            Model.CurrentQuestion = Model.OnboardingQuestions[Model.Counter];
+        }
+        else
+        {
+
+            string jsonSchema = @"
+            {
+                ""type"": ""object"",
+                ""properties"": {
+                    ""likes"": {
+                        ""type"": ""array"",
+                        ""items"": {
+                            ""type"": ""string""
+                        }
+                    },
+                 ""dislikes"": {
+                        ""type"": ""array"",
+                        ""items"": {
+                            ""type"": ""string""
+                        }
+                    },
+                 ""personalinterests"": {
+                        ""type"": ""array"",
+                        ""items"": {
+                            ""type"": ""string""
+                        }
+                    },
+                ""professionalinterests"": {
+                        ""type"": ""array"",
+                        ""items"": {
+                            ""type"": ""string""
+                        }
+                    }
+                },
+                ""required"": [""likes"", ""dislikes"", ""professionalinterests"", ""personalinterests""],
+                ""additionalProperties"": false
+            }
+            ";
+
+
+            //send for final processing 
+            // get final response from agent
+            Options = new()
+            {
+                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                jsonSchemaFormatName: "onboarding_final_assessment",
+                jsonSchema: BinaryData.FromString(jsonSchema),
+                jsonSchemaIsStrict: true)
+            };
+
+            ChatCompletion finalAssessment = await Client.CompleteChatAsync(Model.OnboardingChatHistory, Options);
+            using JsonDocument structuredJson = JsonDocument.Parse(finalAssessment.Content[0].Text);
+            //TODOsave final assessment to vector DB to add to context
+
+            List<OnboardingDataModel> onboardingDataList = new List<OnboardingDataModel>();
+
+            //save likes
+            onboardingDataList.Add(new OnboardingDataModel() 
+            { 
+                Data = "User Likes are " + structuredJson.RootElement.GetProperty("likes").ToString(), 
+                MetaData = new Dictionary<string, object>
+                {
+                    ["Raw"] = structuredJson.RootElement.GetProperty("likes").ToString()
+                }
+            });
+
+            //save dislikes
+            onboardingDataList.Add(new OnboardingDataModel()
+            {
+                Data = "User Dislikes are " + structuredJson.RootElement.GetProperty("dislikes").ToString(),
+                MetaData = new Dictionary<string, object>
+                {
+                    ["Raw"] = structuredJson.RootElement.GetProperty("dislikes").ToString()
+                }
+            });
+
+
+            //save personal interests
+            onboardingDataList.Add(new OnboardingDataModel()
+                {
+                    Data = "User Personal Interests are " + structuredJson.RootElement.GetProperty("personalinterests").ToString(),
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Raw"] = structuredJson.RootElement.GetProperty("personalinterests").ToString()
+                    }
+                });
+
+
+            //save professional interests
+            onboardingDataList.Add(new OnboardingDataModel()
+                {
+                    Data = "User Professional Interests are " + structuredJson.RootElement.GetProperty("professionalinterests").ToString(),
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Raw"] = structuredJson.RootElement.GetProperty("professionalinterests").ToString()
+                    }
+                });
+
+
+            await VectorStoreService.SaveOnboardingResultToVectorStoreAsync(onboardingDataList);
+
+
+            //proceed to main experience
+            Model.CurrentQuestion = null;
+
+            Model.IsOnboardingComplete = true;
+            
+            // Save cookie that onboarding is complete
+            await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
+        }
+
+        
+
+        StateHasChanged();
+
+
+
+        await Task.CompletedTask;
+    }
+
+
+    public class OnboardingViewModel
+    {
+        public List<ChatMessage>? OnboardingChatHistory { get; set; }
+        public string? OnboardingGreeting { get; set; }
+        public List<string>? OnboardingQuestions { get; set; }
+        public string? CurrentQuestion { get; set; }
+        public string? CurrentResponse { get; set; }
+        public int Counter { get; set; } = 0;
+        public bool IsOnboardingComplete { get; set; } = false;
+    }
+}

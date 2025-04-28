@@ -1,0 +1,20 @@
+{
+  "greeting": "Hi there! I hope you're having a good day. I'd like to get to know you better.",
+  "questions": [
+    {
+      "question": "What do you enjoy doing in your free time? Any hobbies or activities you love?"
+    },
+    {
+      "question": "Is there a movie, book, or TV series that you've recently enjoyed or has left a lasting impression on you?"
+    },
+    {
+      "question": "When it comes to food, do you have a favorite cuisine, dish, or snack that makes you happy?"
+    },
+    {
+      "question": "Do you like spending time outdoors? If so, what kind of activities do you enjoy—hiking, biking, or something else?"
+    },
+    {
+      "question": "What kind of music or other forms of entertainment do you find uplifting or inspiring?"
+    }
+  ]
+}
