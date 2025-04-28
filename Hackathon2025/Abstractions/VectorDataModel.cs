@@ -2,7 +2,7 @@
 
 namespace Hackathon2025.Abstractions
 {
-    public class OnboardingDataModel
+    public class VectorDataModel
     {
         public required Dictionary<string, object> MetaData { get; set; } 
         public required string Data { get; set; } 

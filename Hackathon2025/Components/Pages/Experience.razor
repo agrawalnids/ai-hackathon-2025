@@ -50,10 +50,17 @@
         //get user likes & user dislikes from vector DB to add context
         string userOnboardingInterestsContext = "Get all user likes and dislikes";
 
-        List<string> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userOnboardingInterestsContext);
+        Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userOnboardingInterestsContext);
+
+        string onboardingContext = "The user ";
+
+        foreach (var item in results)
+        {
+            onboardingContext += item.Key + ": " + item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty);
+        }
 
 
-        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, visual (image or video URL) and a song (a YouTube link to it) that would improve the user's mood when they are feeling {0}. Based on the provided context, make the best recommendation.", Model.CurrentMood);
+        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, visual (image or video URL) and a song (a YouTube link to it) that would improve the user's mood when they are feeling {0}. Context from previous interaction is {1}. Based on the provided context, make the best recommendation.", Model.CurrentMood, onboardingContext);
 
 
         var openAIOptions = new OpenAIClientOptions()
@@ -103,15 +110,8 @@
 
         var visual = structuredJson.RootElement.GetProperty("visual").ToString();
         var song = structuredJson.RootElement.GetProperty("song").ToString();
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
 
-
-
-
-        //TODO capture and save the question + response to vector DB to produce context
-
-
-        // await _vectorStoreService.SaveToVectorStoreAsync(userMessage, "user");
-        // await _vectorStoreService.SaveToVectorStoreAsync(result, "assistant");
         StateHasChanged();
         await Task.CompletedTask;
     }

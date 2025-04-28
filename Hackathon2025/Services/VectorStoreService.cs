@@ -20,7 +20,7 @@ namespace Hackathon2025.Abstractions
             _configuration = configuration;
         }
 
-        public async Task<List<string>> QueryOnboardingResultVectorStoreAsync(string message)
+        public async Task<Dictionary<string, object>> QueryOnboardingResultVectorStoreAsync(string message)
         {
             var endpoint = _configuration["GithubOpenAI:AzureAIEndpoint"];
             var credential = _configuration["GithubOpenAI:Token"];
@@ -52,20 +52,20 @@ namespace Hackathon2025.Abstractions
                 nResults: 2,
                 include: ChromaQueryInclude.Metadatas | ChromaQueryInclude.Distances);
 
-            List<string> resultLists = new List<string>();
+            Dictionary<string, object> resultLists = new Dictionary<string, object>();
 
             foreach (var result in queryResult)
             {
                 foreach (var item in result)
                 {
-                    resultLists.Add((string)item.Metadata["Raw"]);
+                    resultLists.Add((string)item.Metadata["Label"], (string)item.Metadata["Raw"]);
                 }
             }
 
             return resultLists;
         }
 
-        public async Task SaveOnboardingResultToVectorStoreAsync(List<OnboardingDataModel> onboardingDataList)
+        public async Task SaveToVectorStoreAsync(List<VectorDataModel> vectorDataList)
         {
             var endpoint = _configuration["GithubOpenAI:AzureAIEndpoint"];
             var credential = _configuration["GithubOpenAI:Token"];
@@ -89,7 +89,7 @@ namespace Hackathon2025.Abstractions
             List<ReadOnlyMemory<float>> messageEmbeddings = new List<ReadOnlyMemory<float>>();
             List<Dictionary<string, object>> metadata = new List<Dictionary<string, object>>();
 
-            foreach (var item in onboardingDataList)
+            foreach (var item in vectorDataList)
             {
                 OpenAIEmbedding response = await client2.GenerateEmbeddingAsync(item.Data);
                 ReadOnlyMemory<float> vector = response.ToFloats();

@@ -212,54 +212,62 @@
 
             ChatCompletion finalAssessment = await Client.CompleteChatAsync(Model.OnboardingChatHistory, Options);
             using JsonDocument structuredJson = JsonDocument.Parse(finalAssessment.Content[0].Text);
-            //TODOsave final assessment to vector DB to add to context
+            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
 
-            List<OnboardingDataModel> onboardingDataList = new List<OnboardingDataModel>();
+            List<VectorDataModel> onboardingDataList = new List<VectorDataModel>();
 
             //save likes
-            onboardingDataList.Add(new OnboardingDataModel() 
+            onboardingDataList.Add(new VectorDataModel() 
             { 
                 Data = "User Likes are " + structuredJson.RootElement.GetProperty("likes").ToString(), 
                 MetaData = new Dictionary<string, object>
                 {
-                    ["Raw"] = structuredJson.RootElement.GetProperty("likes").ToString()
+                    ["Raw"] = structuredJson.RootElement.GetProperty("likes").ToString(),
+                    ["Label"] = "Likes",
+                    ["UserName"] = profileName
                 }
             });
 
             //save dislikes
-            onboardingDataList.Add(new OnboardingDataModel()
+            onboardingDataList.Add(new VectorDataModel()
             {
                 Data = "User Dislikes are " + structuredJson.RootElement.GetProperty("dislikes").ToString(),
                 MetaData = new Dictionary<string, object>
                 {
-                    ["Raw"] = structuredJson.RootElement.GetProperty("dislikes").ToString()
+                    ["Raw"] = structuredJson.RootElement.GetProperty("dislikes").ToString(),
+                    ["Label"] = "Dislikes",
+                    ["UserName"] = profileName
                 }
             });
 
 
             //save personal interests
-            onboardingDataList.Add(new OnboardingDataModel()
+            onboardingDataList.Add(new VectorDataModel()
                 {
                     Data = "User Personal Interests are " + structuredJson.RootElement.GetProperty("personalinterests").ToString(),
                     MetaData = new Dictionary<string, object>
                     {
-                        ["Raw"] = structuredJson.RootElement.GetProperty("personalinterests").ToString()
+                        ["Raw"] = structuredJson.RootElement.GetProperty("personalinterests").ToString(),
+                        ["Label"] = "Personal Interests",
+                        ["UserName"] = profileName
                     }
                 });
 
 
             //save professional interests
-            onboardingDataList.Add(new OnboardingDataModel()
+            onboardingDataList.Add(new VectorDataModel()
                 {
                     Data = "User Professional Interests are " + structuredJson.RootElement.GetProperty("professionalinterests").ToString(),
                     MetaData = new Dictionary<string, object>
                     {
-                        ["Raw"] = structuredJson.RootElement.GetProperty("professionalinterests").ToString()
+                        ["Raw"] = structuredJson.RootElement.GetProperty("professionalinterests").ToString(),
+                        ["Label"] = "Professional Interests",
+                        ["UserName"] = profileName
                     }
                 });
 
 
-            await VectorStoreService.SaveOnboardingResultToVectorStoreAsync(onboardingDataList);
+            await VectorStoreService.SaveToVectorStoreAsync(onboardingDataList);
 
 
             //proceed to main experience
