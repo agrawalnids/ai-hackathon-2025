@@ -19,43 +19,27 @@
 }
 else
 {
-    if (!IsOnboardingComplete)
-    {
-        <MudText Typo="Typo.h2" Align="Align.Center">Hey there
-            <MudIcon Icon="@Icons.Material.Filled.WavingHand" Size="Size.Large" />
-        </MudText>
+    <div class="content-wrp">
+        <h1>Let's Checkin</h1>
 
-        <MudText Typo="Typo.h4" Align="Align.Center" Class="mt-4">Happy to see you here. Let's make this pause count.</MudText>
-
-        <MudTextField @bind-Value="UserProfileName" @bind-Value:after="CreateProfileNameCookie" Label="What can I call you?" Variant="Variant.Text" Class="mt-4"></MudTextField>
-
-        if (!string.IsNullOrEmpty(UserProfileName))
+        @if (!IsOnboardingComplete)
         {
-            <MudText Align="Align.Center" Class="mt-4">
-                <MudButton Href="/onboarding"
-                           Variant="Variant.Filled"
-                           Color="Color.Primary">
-                    Begin Onboarding
-                </MudButton>
-            </MudText>
+            <MudTextField @bind-Value="UserProfileName" @bind-Value:after="CreateProfileNameCookie" Label="What can I call you?" Variant="Variant.Text" Class="mt-4"></MudTextField>
+
+            if (!string.IsNullOrEmpty(UserProfileName))
+            {
+                <p class="align-center mt-4">
+                    <a href="/onboarding" class="button"><span>Begin</span></a>
+                </p>
+            }
         }
-    }
-    else
-    {
-        <MudText Typo="Typo.h2" Align="Align.Center">Welcome back @UserProfileName
-            <MudIcon Icon="@Icons.Material.Filled.WavingHand" Size="Size.Large" />
-        </MudText>
-
-        <MudText Typo="Typo.h4" Align="Align.Center" Class="mt-4">Glad to see you back. Let's make this pause count.</MudText>
-
-        <MudText Align="Align.Center" Class="mt-4">
-            <MudButton Href="/experience"
-            Variant="Variant.Filled"
-            Color="Color.Primary">
-                Continue experience
-            </MudButton>
-        </MudText>
-    }
+        else
+        {
+            <p class="align-center mt-4">
+                <a href="/experience" class="button"><span>Continue</span></a>
+            </p>
+        }
+    </div>
 }
 
 @code {

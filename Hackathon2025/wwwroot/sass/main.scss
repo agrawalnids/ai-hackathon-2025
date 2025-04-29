@@ -1,8 +1,220 @@
-﻿body {
+﻿@import '_fonts.scss';
+@import '_mixins.scss';
+@import '_variables.scss';
+
+
+*, *:after, *:before {
+    box-sizing: border-box;
+}
+
+html {
+    font-size: 16px;
+    margin: 0;
+    overflow-x: hidden;
+    -webkit-text-size-adjust: 100%;
+    -ms-text-size-adjust: 100%;
+    -ms-overflow-style: scrollbar;
+    -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+
+body {
+    color: $color_blue_dark;
+    font-family: $font_coda;
     transition: all 1s linear;
 }
 
 .loader {
     display: flex;
     justify-content: center;
+}
+
+.main {
+    display: flex;
+    height: 100vh;
+    width: 100vw;
+}
+
+.container {
+    align-items: center;
+    border: 1px solid $color_blue_dark;
+    border-radius: 10px;
+    box-shadow: 5px 5px $color_blue_dark;
+    display: flex;
+    justify-content: center;
+    height: 80%;
+    margin: auto;
+    width: 75%;
+}
+
+.align-center {
+    text-align: center;
+}
+
+h1, h2, h3, h4, h5, h6 {
+    font-weight: 400;
+}
+    
+h1 {
+    font-size: 2.5rem;
+    margin: 0 0 .5em 0;
+}
+
+h2 {
+    font-size: 1.5rem;
+    margin: 0 0 .5em 0;
+}
+
+
+button,
+.button {
+    align-items: center;
+    background-image: linear-gradient(144deg, $color_orange_dark, $color_orange_tint 50%, $color_orange_light);
+    border: 0;
+    border-radius: 8px;
+    box-sizing: border-box;
+    color: #ffffff;
+    cursor: pointer;
+    display: inline-flex;
+    font-family: $font_pressstart;
+    font-size: 18px;
+    justify-content: center;
+    line-height: 1em;
+    max-width: 100%;
+    padding: 3px;
+    text-transform: uppercase;
+    text-decoration: none;
+    touch-action: manipulation;
+    transition: all 0.3s;
+    user-select: none;
+    -webkit-user-select: none;
+    white-space: nowrap;
+
+    span {
+        background-color: $color_dark_blue;
+        border-radius: 6px;
+        height: 100%;
+        padding: 16px 24px;
+        transition: 300ms;
+        width: 100%;
+    }
+
+    &:active,
+    &:hover {
+        color: $color_dark_blue;
+        outline: 0;
+
+        span {
+            background: none;
+        }
+    }
+
+    &.__small {
+        border-radius: 6px;
+        font-size: 14px;
+        padding: 2px;
+
+        span {
+            border-radius: 4px;
+            padding: 12px 14px;
+        }
+    }
+}
+
+input,
+textarea {
+    border: 1px solid $color_blue_dark;
+    border-radius: 6px;
+    font-family: $font_coda;
+    font-size: 1rem;
+    padding: 10px;
+    width: 600px;
+}
+
+.content-wrp {
+    padding: 1rem;
+
+    &.__scrollable {
+        height: 100%;
+        overflow-x: hidden;
+        overflow-y: auto;
+        width: 100%;
+    }
+}
+
+.card {
+    border: 1px solid $color_orange_light;
+    border-top-width: 10px;
+    border-radius: 10px;
+    margin-bottom: 1rem;
+    padding: 1rem;
+    position: relative;
+
+    .title {
+        font-size: 1.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .description {
+    }
+
+    .info-link {
+        padding: 1rem;
+        position: absolute;
+        right: 0;
+        top: 0;
+
+        a {
+            background: url('/images/icon-external.svg') no-repeat right top;
+            background-size: 16px auto;
+            display: inline-block;
+            padding: 0 20px 0 0;
+        }
+    }
+
+    .btns-wrp {
+        button {
+            margin-right: 10px;
+        }
+    }
+
+    .btns-rate-wrp {
+        bottom: 0;
+        display: flex;
+        gap: 5px;
+        right: 0;
+        padding: 0 1rem 1rem 0;
+        position: absolute;
+
+        a {
+            background: no-repeat center;
+            display: block;
+            height: 32px;
+            width: 32px;
+
+            &:before {
+                content: '';
+                display: block;
+                height: 32px;
+                width: 32px;
+            }
+
+            &.like {
+                &:before {
+                    background-image: url('/images/icon-like.svg');
+                }
+            }
+
+            &.dislike {
+                &:before {
+                    background-image: url('/images/icon-dislike.svg');
+                }
+            }
+        }
+    }
+}
+
+.timer {
+    font-size: 5rem;
+    font-weight: bold;
+    text-align: center;
 }

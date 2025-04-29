@@ -1,0 +1,27 @@
+﻿/*------------------------------------------------------------
+-- MEDIA QUERIES
+--------------------------------------------------------------*/
+/*** BREAKPOINTS - MIN-WIDTH ***/
+@mixin breakpoint($min_point) {
+    @media (min-width: $min_point) {
+        @content;
+    }
+}
+/*** BREAKPOINTS - MAX-WIDTH - (Minus 1) ***/
+@mixin breakpoint-max($max_point) {
+    @media (max-width: #{$max_point - 1}) {
+        @content;
+    }
+}
+/*** BREAKPOINTS - MAX-WIDTH - (Will not subtract 1) ***/
+@mixin breakpoint-max-exactpixel($max_point_exact) {
+    @media (max-width: $max_point_exact) {
+        @content;
+    }
+}
+/*** BETWEEN BREAKPOINTS  ***/
+@mixin breakpoint-between($min_point, $max_point) {
+    @media (min-width: $min_point) and (max-width: $max_point - 1) {
+        @content;
+    }
+}

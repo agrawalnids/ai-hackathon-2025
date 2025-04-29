@@ -10,40 +10,40 @@
 
 <PageTitle>Onboarding</PageTitle>
 
-@if (Model != null)
-{
-    if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
+<div class="content-wrp align-center">
+    @if (Model != null)
     {
-        <MudText Typo="Typo.h1" Align="Align.Center">@Model!.OnboardingGreeting</MudText>
-    }
-
-    if (Model.OnboardingQuestions != null)
-    {
-        if (Model.CurrentQuestion != null)
+        if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
         {
-            <MudText Typo="Typo.h3" Align="Align.Center">@Model.CurrentQuestion</MudText>
-            <MudGrid Class="ma-2">
-                <MudItem xs="9">
-                    <MudTextField @bind-Value="Model.CurrentResponse" Variant="Variant.Outlined"></MudTextField>
-                </MudItem>
-                <MudItem xs="3">
-                    <MudButton Variant="Variant.Filled" StartIcon="@Icons.Material.Filled.Save" Color="Color.Primary" FullWidth="true" DropShadow="false" @onclick="PresentNextQuestion" Style="height: 100%;">Continue</MudButton>
-                </MudItem>
-            </MudGrid>
+            <h1>@Model!.OnboardingGreeting</h1>
         }
 
-        if (Model.IsOnboardingComplete)
+        if (Model.OnboardingQuestions != null)
         {
-            <MudButton Href="/experience"
-            Variant="Variant.Filled"
-            Color="Color.Primary">
-                Proceed to Main Experience
-            </MudButton>
+            if (Model.CurrentQuestion != null)
+            {
+                <h1>@Model.CurrentQuestion</h1>
+            
+                <form @onsubmit="PresentNextQuestion">
+                    <input type="text" @bind="Model.CurrentResponse" />
+
+                    <p class="align-center mt-4">
+                        <button type="submit"><span>Next</span></button>
+                    </p>
+                </form>
+            }
+
+            if (Model.IsOnboardingComplete)
+            {
+                <h1 class="align-center">Thank you!</h1>
+
+                <p class="align-center mt-4">
+                    <a href="/experience" class="button"><span>Proceed to Main Experience</span></a>
+                </p>
+            }
         }
     }
-}
-
-
+</div>
 
 @code {
 

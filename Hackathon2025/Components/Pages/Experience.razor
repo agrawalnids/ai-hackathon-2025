@@ -10,9 +10,47 @@
 
 <PageTitle>Experience</PageTitle>
 
-@if (Model != null)
-{
-    <MudText Typo="Typo.h1" Align="Align.Center">@Model!.ExperienceGreeting</MudText>
+<div class="content-wrp __scrollable">
+
+    @if (Model != null)
+    {
+        <MudText Typo="Typo.h1" Align="Align.Center">@Model!.ExperienceGreeting</MudText>
+        <div id="timer" class="timer">5:00</div>
+        <h1>Let's play a quick game!<br />
+            Some of the below items are fake. Try to spot them.</h1>
+        <h2>You can also like/dislike items to see/not see similar items next time.</h2>
+        @for (int i = 0; i < 5; i++)
+        {
+
+        <div class="card">
+            <div class="info-link">
+                <a href="#" title="More about this item">Info</a>
+            </div>
+            <div class="row">
+                <div class="col">
+                    <p class="title">This is the title</p>
+                    <p class="decription">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur rutrum metus quis tellus lacinia, in tincidunt risus egestas. Donec ut libero in leo convallis efficitur. </p>
+                </div>
+                <div class="col">
+                    <img src="" alt="" />
+                </div>
+            </div>
+            <div class="btns-wrp">
+                <button type="button" class="__small"><span>Real</span></button>
+                <button type="button" class="__small"><span>Fake</span></button>
+            </div>
+        
+        
+            <div class="btns-rate-wrp">
+                <a href="#" class="like" title="Like"></a>
+                <a href="#" class="dislike" title="Dislike"></a>
+            </div>
+        </div>
+        }
+
+        <p class="align-center">
+            <button><span>Finish</span></button>
+        </p>
 
     if (string.IsNullOrEmpty(Model.CurrentMood))
     {
@@ -48,11 +86,9 @@
                 </MudCard>
             }
         }
-
-
     }
-
 }
+</div>
 
 @code {
     public ExperienceViewModel? Model { get; set; }
@@ -66,10 +102,10 @@
         await Task.CompletedTask;
     }
 
-    // protected override async Task OnAfterRenderAsync(bool firstRender)
-    // {
-    //     await JSRuntime.InvokeVoidAsync("updateBackgroundColor", "green");
-    // }
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        await JSRuntime.InvokeVoidAsync("startTimer");
+    }
 
     private async Task SetupMood()
     {

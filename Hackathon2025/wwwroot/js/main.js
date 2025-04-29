@@ -31,3 +31,25 @@ function updateBackgroundColor(color) {
 function hideLoader() {
     $('.loader').removeClass('__active');
 }
+
+function startTimer() {
+    const countdownElement = document.getElementById('timer'); // Ensure this element exists in your HTML
+    const duration = 5 * 60; // 5 minutes in seconds
+    let remainingTime = duration;
+
+    const timerInterval = setInterval(() => {
+        const minutes = Math.floor(remainingTime / 60);
+        const seconds = remainingTime % 60;
+
+        // Update the countdown display
+        countdownElement.textContent = `${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+
+        if (remainingTime <= 0) {
+            clearInterval(timerInterval);
+            // Optional: Add any action to perform when the timer ends
+            //alert('Time is up!');
+        }
+
+        remainingTime--;
+    }, 1000);
+}
