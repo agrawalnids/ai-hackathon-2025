@@ -9,18 +9,25 @@
 @inject IConfiguration Configuration;
 
 <PageTitle>Experience</PageTitle>
-<MudGrid Justify="Justify.Center" Class="mt-8">
-    @foreach (string mood in Model.ExperienceMoods)
+<div class="mood-setter-wrp">
+    @foreach(var mood in Model.ExperienceMoods)
     {
-        <MudItem>
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
-        </MudItem>
+        <button @onclick="() => SetCurrentMood(mood)"><img src='@String.Format("/images/icon-{0}.png", mood)' /></button>
     }
-</MudGrid>
+</div>
+@if (!string.IsNullOrEmpty(Model.MoodAudio))
+{
+
+    <div class="mood-music-wrp">
+        @((MarkupString)Model.MoodAudio)
+        <button @onclick='() => ToggleMoodAudio("play")' class="__play"><img src="/images/icon-audio.png" /></button>
+        <button @onclick='() => ToggleMoodAudio("stop")'  class="__stop __hide"><img src="/images/icon-mute-audio.png" /></button>
+    </div>
+}
+
 <div class="content-wrp __scrollable">
     @if (Model != null)
     {
-
         if (Model.DiscoveryFeed != null)
         {
             //present activity gallery
@@ -28,16 +35,11 @@
             {
 
                 <div class="card">
-                    <div class="info-link">
-                        <a href="@item.URL" title="More about this item">Info</a>
-                    </div>
+                    <iframe src="@item.URL"  title="@item.Title"></iframe>
                     <div class="row">
                         <div class="col">
                             <p class="title">@item.Title</p>
-                            <p class="decription">@item.Content</p>
-                        </div>
-                        <div class="col">
-                            <img src="@item.ImageUrl" alt="" />
+                            <p class="decription">@item.Description</p>
                         </div>
                     </div>
                     <div class="btns-rate-wrp">
@@ -47,8 +49,9 @@
                 </div>
             }
         }
-    
-}
+
+    }
+    <LoadingOverlay ShowOnLoadClass="__active" />
 </div>
 
 @code {
@@ -59,7 +62,18 @@
     protected override async Task OnInitializedAsync()
     {
         Model ??= new(); //init model
-        await GenerateDiscoveryFeed();
+
+
+        var timeUtc = DateTime.UtcNow;
+        TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        DateTime easternTime = TimeZoneInfo.ConvertTimeFromUtc(timeUtc, easternZone);
+
+        Model.IsProductivityMode = (easternTime.Hour > 8 && easternTime.Hour < 17);
+
+
+        // await GenerateDiscoveryFeed();
+
+        // await JSRuntime.InvokeVoidAsync("hideLoader");
         await Task.CompletedTask;
     }
 
@@ -74,7 +88,6 @@
         var credential = Configuration["GithubOpenAI:Token"];
         var model = Configuration["GithubOpenAI:Model"];
 
-        //TODO add context from vectorDB
         //get user likes & user dislikes from vector DB to add context
         string userOnboardingInterestsContext = "Get all user likes and dislikes";
 
@@ -88,7 +101,7 @@
         }
 
 
-        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, visual (image or video URL) and a song (a YouTube link to it) that would improve the user's mood when they are feeling {0}. Context from previous interaction is {1}. Based on the provided context, make the best recommendation.", Model.CurrentMood, onboardingContext);
+        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, a song (a youtube iframe embed link to it) that would improve the user's mood when they are feeling {0}. Context from previous interaction is {1}. Based on the provided context, make the best recommendation.", Model.CurrentMood, onboardingContext);
 
 
         var openAIOptions = new OpenAIClientOptions()
@@ -110,10 +123,9 @@
             ""type"": ""object"",
             ""properties"": {
                 ""backgroundcolour"": { ""type"": ""string"" },
-                ""visual"": { ""type"": ""string"" },
                 ""song"": { ""type"": ""string"" }
             },
-            ""required"": [""backgroundcolour"", ""visual"", ""song""],
+            ""required"": [""backgroundcolour"", ""song""],
             ""additionalProperties"": false
         }
         ";
@@ -134,8 +146,7 @@
         var bgColor = structuredJson.RootElement.GetProperty("backgroundcolour").ToString();
         await JSRuntime.InvokeVoidAsync("updateBackgroundColor", bgColor);
 
-        var visual = structuredJson.RootElement.GetProperty("visual").ToString();
-        var song = structuredJson.RootElement.GetProperty("song").ToString();
+        Model.MoodAudio = structuredJson.RootElement.GetProperty("song").ToString();
 
         //TODO: do something with retrieved items
 
@@ -168,26 +179,19 @@
 
         Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
 
+
+
         var contentGenerationPrompt = $@"
-                You are a Mental Health expert with over 20 years of experience. Based on the current time of the day (morning), your task is to suggest the user 10 short content pieces to help them with their productivity and mood. If it is morning, suggest content that increases their professional productivity and if it is after 5pm, suggest content that helps the user wind down and plan their rest of the evening.
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 3 short-form content pieces (each under 5 minutes) to boost productivity. Prioritize videos, audio clips, or quick articles. Categorize them as videos, audio, article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}";
 
-                User's interests have been provided in the following context: {onboardingContext}.
-                User's current mood is {Model.CurrentMood}
+        if (!Model.IsProductivityMode)
+        {
+            contentGenerationPrompt = $@"
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 3 short-form content pieces (each under 5 minutes) to help me wind down. Prioritize videos, audio clips, or quick articles. Categorize them as videos, audio, article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}";
+        }
 
-           - Create 10 short content pieces.
-           - Types of content:
-               - News articles
-               - Trivia facts
-               - Tips of the day (life or career)
-               - Upcoming events in Canada related to the topic
-               - How-to advice
-           - For each item, return:
-               - A title (max 12 words)
-               - A 5 sentence description
-               - URL to the source
-               - An Image URL if available
-    
-        Respond in structured JSON list format with fields: Title, Description, URL, Content (for quizzes), IsReal. DO NOT generate explanations - just the raw JSON list";
+        contentGenerationPrompt += "Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
+
         string jsonSchema = @"
         {
             ""type"": ""object"",
@@ -198,13 +202,11 @@
                         ""type"": ""object"",
                         ""properties"": {
                             ""title"": { ""type"": ""string"" },
-                            ""url"": { ""type"": ""string"" },
-                            ""imageurl"": { ""type"" :""string""},
-                            ""content"": { ""type"": ""string"" },
+                            ""sourceurl"": { ""type"": ""string"" },
                             ""description"": { ""type"": ""string"" },
-                            ""isreal"": { ""type"": ""boolean"" }
+                            ""contentType"": { ""type"": ""string"" }
                         },
-                        ""required"": [""title"", ""description"",""imageurl"", ""url"", ""content"", ""isreal""],
+                        ""required"": [""title"", ""sourceurl"", ""description"", ""contentType""],
                         ""additionalProperties"": false
                     }
                 }
@@ -213,6 +215,7 @@
             ""additionalProperties"": false
         }
         ";
+
 
 
         Options = new()
@@ -240,11 +243,9 @@
             ContentItemModel item = new ContentItemModel
                 {
                     Title = contentItem.GetProperty("title").ToString(),
-                    URL = contentItem.GetProperty("url").ToString(),
-                    Content = contentItem.GetProperty("content").ToString(),
-                    ImageUrl = contentItem.GetProperty("imageurl").ToString(),
+                    URL = contentItem.GetProperty("sourceurl").ToString(),
                     Description = contentItem.GetProperty("description").ToString(),
-                    IsReal = contentItem.GetProperty("isreal").ToString()
+                    ContentType = contentItem.GetProperty("contentType").ToString()
                 };
 
             Model.DiscoveryFeed.Add(item);
@@ -260,14 +261,19 @@
         Model.CurrentMood = mood;
 
         //Get experience set up based on mood + interests/likes
-        // await SetupMood();
+        await SetupMood();
 
         //Generate Discovery Feed
-        await GenerateDiscoveryFeed();
+        //await GenerateDiscoveryFeed();
 
         StateHasChanged();
 
         await Task.CompletedTask;
+    }
+
+    private async Task ToggleMoodAudio(string state)
+    {
+        await JSRuntime.InvokeVoidAsync("playMoodAudio", state);
     }
 
 
@@ -275,8 +281,13 @@
     {
         public List<ChatMessage>? ExperienceChatHistory { get; set; }
         public string? ExperienceGreeting { get; set; } = "How are you feeling today?";
-        public List<string> ExperienceMoods { get; set; } = new List<string>() { "Fantastic", "Happy", "Neutral", "Not too bad", "Sad" };
-        public string? CurrentMood { get; set; } = "Happy";
+        public List<string> ExperienceMoods { get; set; } = new List<string>() { "fantastic", "happy", "neutral", "meh", "sad" };
+        public string? CurrentMood { get; set; } = "happy";
         public List<ContentItemModel>? DiscoveryFeed { get; set; } = new List<ContentItemModel>();
+
+
+
+        public bool IsProductivityMode { get; set; } = true;
+        public string? MoodAudio { get; set; }
     }
 }

@@ -27,6 +27,28 @@ function updateBackgroundColor(color) {
     }
 }
 
+function playMoodAudio(playOrStop) {
+
+    if (playOrStop == 'play') {
+        //as noted in addendum, check for querystring exitence
+        var symbol = $(".mood-music-wrp iframe")[0].src.indexOf("?") > -1 ? "&" : "?";
+
+        $(".mood-music-wrp").data('link', $(".mood-music-wrp iframe")[0].src);
+
+        //modify source to autoplay and start video
+        $(".mood-music-wrp iframe")[0].src += symbol + "autoplay=1";
+    } else {
+        var iframe = $(".mood-music-wrp iframe")[0];
+        if (iframe) {
+            iframe.src = $(".mood-music-wrp").data('link');
+        }
+    }
+
+
+    $(".mood-music-wrp button.__play").toggleClass('__hide');
+    $(".mood-music-wrp button.__stop").toggleClass('__hide');
+}
+
 
 function hideLoader() {
     $('.loader').removeClass('__active');
