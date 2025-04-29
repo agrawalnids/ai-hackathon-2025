@@ -16,33 +16,13 @@ builder.Services.AddWebOptimizer(pipeline =>
     pipeline.AddScssBundle("/css/main.min.css", "/sass/main.scss");
 });
 
-////var modelId = builder.Configuration["GithubOpenAI:Model"];
-//var modelId = "openai/gpt-4o";
-//var endpoint = "https://models.inference.ai.azure.com";
-//var apiKey = builder.Configuration["GithubOpenAI:Token"];
-//var deploymentName = ""; //todo
-
-//builder.Services.AddSingleton<Kernel>(serviceProvider =>
-//{
-//    var httpClientFactory = serviceProvider.GetRequiredService<IHttpClientFactory>();
-//    var httpClient = httpClientFactory.CreateClient("httpClient");
-
-//#pragma warning disable SKEXP0010 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-//    var builder = Kernel.CreateBuilder()
-//        .AddAzureOpenAIChatCompletion(deploymentName, endpoint, apiKey, httpClient: httpClient);
-//        //.AddAzureOpenAITextEmbeddingGeneration(deploymentName, endpoint, apiKey, httpClient: httpClient);
-//#pragma warning restore SKEXP0010 // Type is for evaluation purposes only and is subject to change or removal in future updates. Suppress this diagnostic to proceed.
-
-//    return builder.Build();
-//});
-
 // Add services to the container.
 builder.Services.AddRazorComponents()
 	.AddInteractiveServerComponents();
 
 
 builder.Services.AddHttpClient();
-builder.Services.AddSingleton<AgentService>();
+builder.Services.AddSingleton<OnboardingAgentService>();
 builder.Services.AddSingleton<VectorStoreService>();
 
 builder.Services.AddMudServices();

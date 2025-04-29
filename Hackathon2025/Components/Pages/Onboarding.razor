@@ -4,7 +4,7 @@
 @using OpenAI.Chat
 @using System.ClientModel
 @using System.Text.Json
-@inject AgentService AgentService
+@inject OnboardingAgentService AgentService
 @inject VectorStoreService VectorStoreService
 @inject IConfiguration Configuration;
 
@@ -18,21 +18,8 @@
             <h1>@Model!.OnboardingGreeting</h1>
         }
 
-        if (Model.OnboardingQuestions != null)
+        if (Model.OnboardingTopics != null)
         {
-            if (Model.CurrentQuestion != null)
-            {
-                <h1>@Model.CurrentQuestion</h1>
-            
-                <form @onsubmit="PresentNextQuestion">
-                    <input type="text" @bind="Model.CurrentResponse" />
-
-                    <p class="align-center mt-4">
-                        <button type="submit"><span>Next</span></button>
-                    </p>
-                </form>
-            }
-
             if (Model.IsOnboardingComplete)
             {
                 <h1 class="align-center">Thank you!</h1>
@@ -41,8 +28,27 @@
                     <a href="/experience" class="button"><span>Proceed to Main Experience</span></a>
                 </p>
             }
+            else
+            {
+                <form @onsubmit="SaveTopicsAndProceed">
+                <MudSelect T="TopicModel" Label="Topics" MultiSelection="true" @bind-SelectedValues="Model.SelectedOnboardingTopics">
+                    @foreach (var topic in Model.OnboardingTopics)
+                    {
+                        <MudSelectItem T="TopicModel" Value="@topic">@topic.Title</MudSelectItem>
+                    }
+                </MudSelect>
+
+
+                    <p class="align-center mt-4">
+                        <button type="submit"><span>I'm Done</span></button>
+                    </p>
+                </form>
+
+            }
         }
+
     }
+    <LoadingOverlay ShowOnLoadClass="__active" />
 </div>
 
 @code {
@@ -67,8 +73,8 @@
         var model = Configuration["GithubOpenAI:Model"];
 
         var onboardingConfigPrompt = @"You are a Mental Health expert with over 20 years of experience.
-                Your goal is to understand the user's likes, dislikes, personal and professional interests.
-                Ask the user 5 questions that require less than 10 words to answer to achieve your goal. Start with a playful greeting and then provide the questions in a json array.
+                Your goal is to understand the user's likes, personal and professional interests.
+                Generate a list of 20 topics that are categorized as Personal, Professional and Home with a 2-3 sentence description of the topic.
         ";
 
 
@@ -90,20 +96,21 @@
         {
             ""type"": ""object"",
             ""properties"": {
-                ""greeting"": { ""type"": ""string"" },
-                ""questions"": {
+                ""topics"": {
                     ""type"": ""array"",
                     ""items"": {
                         ""type"": ""object"",
                         ""properties"": {
-                            ""question"": { ""type"": ""string"" }
+                            ""title"": { ""type"": ""string"" },
+                            ""description"": { ""type"": ""string"" },
+                            ""category"": { ""type"" : ""string""}
                         },
-                        ""required"": [""question""],
+                        ""required"": [""title"", ""description"", ""category""],
                         ""additionalProperties"": false
                     }
                 }
             },
-            ""required"": [""greeting"", ""questions""],
+            ""required"": [""topics""],
             ""additionalProperties"": false
         }
         ";
@@ -111,7 +118,7 @@
         Options = new()
         {
             ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "onboarding_questions",
+                jsonSchemaFormatName: "onboarding_topics",
                 jsonSchema: BinaryData.FromString(jsonSchema),
                 jsonSchemaIsStrict: true)
         };
@@ -121,165 +128,63 @@
 
         using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
 
-        Model.OnboardingGreeting = structuredJson.RootElement.GetProperty("greeting").ToString();
+        Model.OnboardingGreeting = "Pick your interests";
 
         // Append the model response to the chat history.
         Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.OnboardingGreeting));
 
 
-        JsonElement.ArrayEnumerator onboardingQuestionsJson = structuredJson.RootElement.GetProperty("questions").EnumerateArray();
-        Model.OnboardingQuestions = new List<string>();
+        JsonElement.ArrayEnumerator onboardingQuestionsJson = structuredJson.RootElement.GetProperty("topics").EnumerateArray();
+        Model.OnboardingTopics = new List<TopicModel>();
 
         foreach (JsonElement questionElement in onboardingQuestionsJson)
         {
-            var question = questionElement.GetProperty("question").ToString();
+            TopicModel topicModel = new()
+            {
+                Title= questionElement.GetProperty("title").ToString(),
+                Description = questionElement.GetProperty("description").ToString(),
+                    Category = questionElement.GetProperty("category").ToString(),
+            };
 
-            Model.OnboardingQuestions.Add(question);
+            Model.OnboardingTopics.Add(topicModel);
         }
 
-        Model.CurrentQuestion = Model.OnboardingQuestions.FirstOrDefault();
-
+        await JSRuntime.InvokeVoidAsync("hideLoader");
 
         StateHasChanged();
         await Task.CompletedTask;
     }
 
-    private async Task PresentNextQuestion()
+    private async Task SaveTopicsAndProceed()
     {
-        //TODOfade card out
 
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
 
-        Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.CurrentQuestion));
-        // Append user response to the chat history.
-        Model.OnboardingChatHistory.Add(new UserChatMessage(Model.CurrentResponse));
+        List<VectorDataModel> onboardingDataList = new List<VectorDataModel>();
 
-        Model.CurrentResponse = string.Empty; //clear textbox
-        Model.Counter++;
-
-        if (Model.Counter < 5)
+        foreach (TopicModel topic in Model.SelectedOnboardingTopics)
         {
-            //fade card back in
-
-            Model.CurrentQuestion = Model.OnboardingQuestions[Model.Counter];
-        }
-        else
-        {
-
-            string jsonSchema = @"
-            {
-                ""type"": ""object"",
-                ""properties"": {
-                    ""likes"": {
-                        ""type"": ""array"",
-                        ""items"": {
-                            ""type"": ""string""
-                        }
-                    },
-                 ""dislikes"": {
-                        ""type"": ""array"",
-                        ""items"": {
-                            ""type"": ""string""
-                        }
-                    },
-                 ""personalinterests"": {
-                        ""type"": ""array"",
-                        ""items"": {
-                            ""type"": ""string""
-                        }
-                    },
-                ""professionalinterests"": {
-                        ""type"": ""array"",
-                        ""items"": {
-                            ""type"": ""string""
-                        }
-                    }
-                },
-                ""required"": [""likes"", ""dislikes"", ""professionalinterests"", ""personalinterests""],
-                ""additionalProperties"": false
-            }
-            ";
-
-
-            //send for final processing 
-            // get final response from agent
-            Options = new()
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "onboarding_final_assessment",
-                jsonSchema: BinaryData.FromString(jsonSchema),
-                jsonSchemaIsStrict: true)
-            };
-
-            ChatCompletion finalAssessment = await Client.CompleteChatAsync(Model.OnboardingChatHistory, Options);
-            using JsonDocument structuredJson = JsonDocument.Parse(finalAssessment.Content[0].Text);
-            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-
-            List<VectorDataModel> onboardingDataList = new List<VectorDataModel>();
-
-            //save likes
-            onboardingDataList.Add(new VectorDataModel() 
-            { 
-                Data = "User Likes are " + structuredJson.RootElement.GetProperty("likes").ToString(), 
-                MetaData = new Dictionary<string, object>
-                {
-                    ["Raw"] = structuredJson.RootElement.GetProperty("likes").ToString(),
-                    ["Label"] = "Likes",
-                    ["UserName"] = profileName
-                }
-            });
-
-            //save dislikes
-            onboardingDataList.Add(new VectorDataModel()
-            {
-                Data = "User Dislikes are " + structuredJson.RootElement.GetProperty("dislikes").ToString(),
-                MetaData = new Dictionary<string, object>
-                {
-                    ["Raw"] = structuredJson.RootElement.GetProperty("dislikes").ToString(),
-                    ["Label"] = "Dislikes",
-                    ["UserName"] = profileName
-                }
-            });
-
-
-            //save personal interests
             onboardingDataList.Add(new VectorDataModel()
                 {
-                    Data = "User Personal Interests are " + structuredJson.RootElement.GetProperty("personalinterests").ToString(),
+                    Data = topic.Description,
                     MetaData = new Dictionary<string, object>
                     {
-                        ["Raw"] = structuredJson.RootElement.GetProperty("personalinterests").ToString(),
-                        ["Label"] = "Personal Interests",
+                        ["Category"] = topic.Category,
+                        ["Description"] = topic.Description,
+                        ["Label"] = topic.Title,
                         ["UserName"] = profileName
                     }
                 });
-
-
-            //save professional interests
-            onboardingDataList.Add(new VectorDataModel()
-                {
-                    Data = "User Professional Interests are " + structuredJson.RootElement.GetProperty("professionalinterests").ToString(),
-                    MetaData = new Dictionary<string, object>
-                    {
-                        ["Raw"] = structuredJson.RootElement.GetProperty("professionalinterests").ToString(),
-                        ["Label"] = "Professional Interests",
-                        ["UserName"] = profileName
-                    }
-                });
-
-
-            await VectorStoreService.SaveToVectorStoreAsync(onboardingDataList);
-
-
-            //proceed to main experience
-            Model.CurrentQuestion = null;
-
-            Model.IsOnboardingComplete = true;
-            
-            // Save cookie that onboarding is complete
-            await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
         }
 
-        
+
+        await VectorStoreService.SaveToVectorStoreAsync(onboardingDataList);
+
+        Model.IsOnboardingComplete = true;
+
+        // Save cookie that onboarding is complete
+        await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
+
 
         StateHasChanged();
 
@@ -293,10 +198,37 @@
     {
         public List<ChatMessage>? OnboardingChatHistory { get; set; }
         public string? OnboardingGreeting { get; set; }
-        public List<string>? OnboardingQuestions { get; set; }
+        public List<TopicModel>? OnboardingTopics { get; set; }
+        public IEnumerable<TopicModel>? SelectedOnboardingTopics = new HashSet<TopicModel>();
         public string? CurrentQuestion { get; set; }
         public string? CurrentResponse { get; set; }
         public int Counter { get; set; } = 0;
         public bool IsOnboardingComplete { get; set; } = false;
+    }
+
+
+    public class TopicModel : IEquatable<TopicModel>
+    {
+        // IEquatable is required for complex objects, because otherwise the framework will compare the references
+        // Which will not be equal when comparing the list of items and the selected item.
+        // Alternatively you can implement IEqualityComparer separately and pass it to Comparer in MudSelect if you have no control over the object
+
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Category { get; set; }
+
+        public bool Equals(TopicModel? other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Title == other.Title;
+        }
+
+        public override bool Equals(object? obj) => obj is TopicModel state && Equals(state);
+
+        public override int GetHashCode() => Title.GetHashCode();
+
+        // Also important to override ToString, otherwise the object will be displayed as the full class name
+        public override string ToString() => Title;
     }
 }

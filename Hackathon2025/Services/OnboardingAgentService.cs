@@ -8,14 +8,14 @@ using Azure;
 
 namespace Hackathon2025.Abstractions
 {
-    public class AgentService
+    public class OnboardingAgentService
     {
         private readonly HttpClient _httpClient;
         private readonly IConfiguration _configuration;
         private readonly VectorStoreService _vectorStoreService;
 
 
-        public AgentService(HttpClient httpClient, IConfiguration configuration, VectorStoreService vectorStoreService)
+        public OnboardingAgentService(HttpClient httpClient, IConfiguration configuration, VectorStoreService vectorStoreService)
         {
             _httpClient = httpClient;
             _configuration = configuration;

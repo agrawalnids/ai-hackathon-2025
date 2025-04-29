@@ -8,7 +8,7 @@
 @using System.Text.Json;
 @using System.ComponentModel.DataAnnotations
 
-@inject AgentService AgentService
+@inject OnboardingAgentService AgentService
 @inject VectorStoreService VectorStoreService
 
 <PageTitle>Home</PageTitle>
@@ -20,7 +20,7 @@
 else
 {
     <div class="content-wrp">
-        <h1>Let's Checkin</h1>
+       <h1>Hey There!</h1>
 
         @if (!IsOnboardingComplete)
         {
@@ -29,14 +29,14 @@ else
             if (!string.IsNullOrEmpty(UserProfileName))
             {
                 <p class="align-center mt-4">
-                    <a href="/onboarding" class="button"><span>Begin</span></a>
+                    <a href="/onboarding" class="button"><span>Let's Checkin</span></a>
                 </p>
             }
         }
         else
         {
             <p class="align-center mt-4">
-                <a href="/experience" class="button"><span>Continue</span></a>
+                <a href="/experience" class="button"><span>Let's Checkin</span></a>
             </p>
         }
     </div>
@@ -46,7 +46,7 @@ else
     private bool IsLoading { get; set; } = true;
     private bool IsOnboardingComplete { get; set; } = false;
 
-    private string UserProfileName { get; set; } = string.Empty;
+    private string UserProfileName { get; set; } = "UserName";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {

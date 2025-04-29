@@ -58,7 +58,7 @@ namespace Hackathon2025.Abstractions
             {
                 foreach (var item in result)
                 {
-                    resultLists.Add((string)item.Metadata["Label"], (string)item.Metadata["Raw"]);
+                    resultLists.Add((string)item.Metadata["Label"], (string)item.Metadata["Description"]);
                 }
             }
 

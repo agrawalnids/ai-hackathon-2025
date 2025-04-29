@@ -4,89 +4,50 @@
 @using OpenAI.Chat
 @using System.ClientModel
 @using System.Text.Json
-@inject AgentService AgentService
+@inject OnboardingAgentService AgentService
 @inject VectorStoreService VectorStoreService
 @inject IConfiguration Configuration;
 
 <PageTitle>Experience</PageTitle>
-
+<MudGrid Justify="Justify.Center" Class="mt-8">
+    @foreach (string mood in Model.ExperienceMoods)
+    {
+        <MudItem>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
+        </MudItem>
+    }
+</MudGrid>
 <div class="content-wrp __scrollable">
-
     @if (Model != null)
     {
-        <MudText Typo="Typo.h1" Align="Align.Center">@Model!.ExperienceGreeting</MudText>
-        <div id="timer" class="timer">5:00</div>
-        <h1>Let's play a quick game!<br />
-            Some of the below items are fake. Try to spot them.</h1>
-        <h2>You can also like/dislike items to see/not see similar items next time.</h2>
-        @for (int i = 0; i < 5; i++)
-        {
 
-        <div class="card">
-            <div class="info-link">
-                <a href="#" title="More about this item">Info</a>
-            </div>
-            <div class="row">
-                <div class="col">
-                    <p class="title">This is the title</p>
-                    <p class="decription">Lorem ipsum dolor sit amet, consectetur adipiscing elit. Curabitur rutrum metus quis tellus lacinia, in tincidunt risus egestas. Donec ut libero in leo convallis efficitur. </p>
-                </div>
-                <div class="col">
-                    <img src="" alt="" />
-                </div>
-            </div>
-            <div class="btns-wrp">
-                <button type="button" class="__small"><span>Real</span></button>
-                <button type="button" class="__small"><span>Fake</span></button>
-            </div>
-        
-        
-            <div class="btns-rate-wrp">
-                <a href="#" class="like" title="Like"></a>
-                <a href="#" class="dislike" title="Dislike"></a>
-            </div>
-        </div>
-        }
-
-        <p class="align-center">
-            <button><span>Finish</span></button>
-        </p>
-
-    if (string.IsNullOrEmpty(Model.CurrentMood))
-    {
-        <MudGrid Justify="Justify.Center" Class="mt-8">
-            @foreach (string mood in Model.ExperienceMoods)
-            {
-                <MudItem>
-                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
-                </MudItem>
-            }
-        </MudGrid>
-    }
-    else
-    {
-        <p>Discovery Feed</p>
         if (Model.DiscoveryFeed != null)
         {
             //present activity gallery
             foreach (var item in Model.DiscoveryFeed)
             {
-                <MudCard>
-                    <MudCardHeader>
-                        <CardHeaderContent>
-                            <MudText Typo="Typo.h6">@item.Title</MudText>
-                        </CardHeaderContent>
-                    </MudCardHeader>
-                    <MudCardContent>
-                        <MudText Typo="Typo.body2">@item.Description</MudText>
-                    </MudCardContent>
-                    <MudCardActions>
-                        <MudButton Variant="Variant.Text" Color="Color.Primary">Fake News</MudButton>
-                    </MudCardActions>
-                </MudCard>
+
+                <div class="card">
+                    <div class="info-link">
+                        <a href="@item.URL" title="More about this item">Info</a>
+                    </div>
+                    <div class="row">
+                        <div class="col">
+                            <p class="title">@item.Title</p>
+                            <p class="decription">@item.Content</p>
+                        </div>
+                        <div class="col">
+                            <img src="@item.ImageUrl" alt="" />
+                        </div>
+                    </div>
+                    <div class="btns-rate-wrp">
+                        <a href="#" class="like" title="Like"></a>
+                        <a href="#" class="dislike" title="Dislike"></a>
+                    </div>
+                </div>
             }
         }
-    }
+    
 }
 </div>
 
@@ -104,7 +65,7 @@
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        await JSRuntime.InvokeVoidAsync("startTimer");
+        // await JSRuntime.InvokeVoidAsync("startTimer");
     }
 
     private async Task SetupMood()
@@ -189,38 +150,44 @@
         var credential = Configuration["GithubOpenAI:Token"];
         var model = Configuration["GithubOpenAI:Model"];
 
-        string userLikesInterests = "Get user likes, personal interests and professional interests";
+        string userLikesInterests = "Get user's personal interests and professional interests";
 
         Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userLikesInterests);
 
-        string onboardingContext = "The user's ";
+        string onboardingContext = String.Empty;
 
         foreach (var item in results)
         {
-            onboardingContext += item.Key + ": " + item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty);
+            onboardingContext += String.Format("{0}. ", item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
         }
+
         var openAIOptions = new OpenAIClientOptions()
-            {
-                Endpoint = new Uri(endpoint)
-            };
+        {
+            Endpoint = new Uri(endpoint)
+        };
 
         Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
 
-        var contentGenerationPrompt = $@"You are an AI that generates a mix of real and fake content to test the user's ability to distinguish fact from fiction. The fake content is mostly lighthearted but believable. Based on the context provided '({onboardingContext}') and user's current mood ({Model.CurrentMood}): 
+        var contentGenerationPrompt = $@"
+                You are a Mental Health expert with over 20 years of experience. Based on the current time of the day (morning), your task is to suggest the user 10 short content pieces to help them with their productivity and mood. If it is morning, suggest content that increases their professional productivity and if it is after 5pm, suggest content that helps the user wind down and plan their rest of the evening.
+
+                User's interests have been provided in the following context: {onboardingContext}.
+                User's current mood is {Model.CurrentMood}
+
            - Create 10 short content pieces.
-           - Each should be either a real (true) or fake (invented but possible) item.
            - Types of content:
-               - News articles (real or fake)
+               - News articles
                - Trivia facts
-               - Memes
                - Tips of the day (life or career)
-               - Upcoming events (real only)
+               - Upcoming events in Canada related to the topic
                - How-to advice
            - For each item, return:
                - A title (max 12 words)
-               - A 2-3 sentence description
-               - Whether it is Real or Fake
-        Respond in structured JSON list format with fields: Title, Description, Content (for quizzes), IsReal. DO NOT generate explanations - just the raw JSON list";
+               - A 5 sentence description
+               - URL to the source
+               - An Image URL if available
+    
+        Respond in structured JSON list format with fields: Title, Description, URL, Content (for quizzes), IsReal. DO NOT generate explanations - just the raw JSON list";
         string jsonSchema = @"
         {
             ""type"": ""object"",
@@ -231,10 +198,13 @@
                         ""type"": ""object"",
                         ""properties"": {
                             ""title"": { ""type"": ""string"" },
+                            ""url"": { ""type"": ""string"" },
+                            ""imageurl"": { ""type"" :""string""},
+                            ""content"": { ""type"": ""string"" },
                             ""description"": { ""type"": ""string"" },
                             ""isreal"": { ""type"": ""boolean"" }
                         },
-                        ""required"": [""title"", ""description"", ""isreal""],
+                        ""required"": [""title"", ""description"",""imageurl"", ""url"", ""content"", ""isreal""],
                         ""additionalProperties"": false
                     }
                 }
@@ -270,6 +240,9 @@
             ContentItemModel item = new ContentItemModel
                 {
                     Title = contentItem.GetProperty("title").ToString(),
+                    URL = contentItem.GetProperty("url").ToString(),
+                    Content = contentItem.GetProperty("content").ToString(),
+                    ImageUrl = contentItem.GetProperty("imageurl").ToString(),
                     Description = contentItem.GetProperty("description").ToString(),
                     IsReal = contentItem.GetProperty("isreal").ToString()
                 };
