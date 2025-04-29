@@ -14,14 +14,44 @@
 {
     <MudText Typo="Typo.h1" Align="Align.Center">@Model!.ExperienceGreeting</MudText>
 
-    <MudGrid Justify="Justify.Center" Class="mt-8">
-        @foreach (string mood in Model.ExperienceMoods)
+    if (string.IsNullOrEmpty(Model.CurrentMood))
+    {
+        <MudGrid Justify="Justify.Center" Class="mt-8">
+            @foreach (string mood in Model.ExperienceMoods)
+            {
+                <MudItem>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
+                </MudItem>
+            }
+        </MudGrid>
+    }
+    else
+    {
+        <p>Discovery Feed</p>
+        if (Model.DiscoveryFeed != null)
         {
-            <MudItem>
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="() => SetCurrentMood(mood)">@mood</MudButton>
-            </MudItem>
+            //present activity gallery
+            foreach (var item in Model.DiscoveryFeed)
+            {
+                <MudCard>
+                    <MudCardHeader>
+                        <CardHeaderContent>
+                            <MudText Typo="Typo.h6">@item.Title</MudText>
+                        </CardHeaderContent>
+                    </MudCardHeader>
+                    <MudCardContent>
+                        <MudText Typo="Typo.body2">@item.Description</MudText>
+                    </MudCardContent>
+                    <MudCardActions>
+                        <MudButton Variant="Variant.Text" Color="Color.Primary">Fake News</MudButton>
+                    </MudCardActions>
+                </MudCard>
+            }
         }
-    </MudGrid>
+
+
+    }
+
 }
 
 @code {
@@ -32,6 +62,7 @@
     protected override async Task OnInitializedAsync()
     {
         Model ??= new(); //init model
+        await GenerateDiscoveryFeed();
         await Task.CompletedTask;
     }
 
@@ -40,7 +71,7 @@
     //     await JSRuntime.InvokeVoidAsync("updateBackgroundColor", "green");
     // }
 
-    private async Task SetupExperience()
+    private async Task SetupMood()
     {
         var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
         var credential = Configuration["GithubOpenAI:Token"];
@@ -69,8 +100,6 @@
             };
 
         Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
-
-        Model ??= new(); //init model
 
         Model.ExperienceChatHistory = new List<ChatMessage>()
         {
@@ -110,7 +139,107 @@
 
         var visual = structuredJson.RootElement.GetProperty("visual").ToString();
         var song = structuredJson.RootElement.GetProperty("song").ToString();
-        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+        //TODO: do something with retrieved items
+
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+
+    private async Task GenerateDiscoveryFeed()
+    {
+        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
+        var credential = Configuration["GithubOpenAI:Token"];
+        var model = Configuration["GithubOpenAI:Model"];
+
+        string userLikesInterests = "Get user likes, personal interests and professional interests";
+
+        Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userLikesInterests);
+
+        string onboardingContext = "The user's ";
+
+        foreach (var item in results)
+        {
+            onboardingContext += item.Key + ": " + item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty);
+        }
+        var openAIOptions = new OpenAIClientOptions()
+            {
+                Endpoint = new Uri(endpoint)
+            };
+
+        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
+
+        var contentGenerationPrompt = $@"You are an AI that generates a mix of real and fake content to test the user's ability to distinguish fact from fiction. The fake content is mostly lighthearted but believable. Based on the context provided '({onboardingContext}') and user's current mood ({Model.CurrentMood}): 
+           - Create 10 short content pieces.
+           - Each should be either a real (true) or fake (invented but possible) item.
+           - Types of content:
+               - News articles (real or fake)
+               - Trivia facts
+               - Memes
+               - Tips of the day (life or career)
+               - Upcoming events (real only)
+               - How-to advice
+           - For each item, return:
+               - A title (max 12 words)
+               - A 2-3 sentence description
+               - Whether it is Real or Fake
+        Respond in structured JSON list format with fields: Title, Description, Content (for quizzes), IsReal. DO NOT generate explanations - just the raw JSON list";
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""contentitems"": {
+                    ""type"": ""array"",
+                    ""items"": {
+                        ""type"": ""object"",
+                        ""properties"": {
+                            ""title"": { ""type"": ""string"" },
+                            ""description"": { ""type"": ""string"" },
+                            ""isreal"": { ""type"": ""boolean"" }
+                        },
+                        ""required"": [""title"", ""description"", ""isreal""],
+                        ""additionalProperties"": false
+                    }
+                }
+            },
+            ""required"": [""contentitems""],
+            ""additionalProperties"": false
+        }
+        ";
+
+
+        Options = new()
+            {
+                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
+                        jsonSchemaFormatName: "discovery_feed_setup",
+                        jsonSchema: BinaryData.FromString(jsonSchema),
+                        jsonSchemaIsStrict: true)
+            };
+
+        Model.ExperienceChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(contentGenerationPrompt)
+        };
+
+        ChatCompletion response1 = await Client.CompleteChatAsync(Model.ExperienceChatHistory, Options);
+
+
+        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
+
+        JsonElement.ArrayEnumerator contentItemsJson = structuredJson.RootElement.GetProperty("contentitems").EnumerateArray();
+
+        foreach (JsonElement contentItem in contentItemsJson)
+        {
+            ContentItemModel item = new ContentItemModel
+                {
+                    Title = contentItem.GetProperty("title").ToString(),
+                    Description = contentItem.GetProperty("description").ToString(),
+                    IsReal = contentItem.GetProperty("isreal").ToString()
+                };
+
+            Model.DiscoveryFeed.Add(item);
+        }
 
         StateHasChanged();
         await Task.CompletedTask;
@@ -122,7 +251,10 @@
         Model.CurrentMood = mood;
 
         //Get experience set up based on mood + interests/likes
-        await SetupExperience();
+        // await SetupMood();
+
+        //Generate Discovery Feed
+        await GenerateDiscoveryFeed();
 
         StateHasChanged();
 
@@ -135,6 +267,7 @@
         public List<ChatMessage>? ExperienceChatHistory { get; set; }
         public string? ExperienceGreeting { get; set; } = "How are you feeling today?";
         public List<string> ExperienceMoods { get; set; } = new List<string>() { "Fantastic", "Happy", "Neutral", "Not too bad", "Sad" };
-        public string? CurrentMood { get; set; }
+        public string? CurrentMood { get; set; } = "Happy";
+        public List<ContentItemModel>? DiscoveryFeed { get; set; } = new List<ContentItemModel>();
     }
 }
