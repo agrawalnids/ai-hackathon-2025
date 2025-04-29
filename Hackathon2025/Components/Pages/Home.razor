@@ -68,8 +68,7 @@ else
     {
         if (firstRender)
         {
-            // Logic to execute on page load
-            //await InitializePageAsync();
+            await JSRuntime.InvokeVoidAsync("hideLoader");
 
             // Check if onboarding is already complete or not
             var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");

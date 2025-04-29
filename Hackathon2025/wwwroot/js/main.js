@@ -26,3 +26,8 @@ function updateBackgroundColor(color) {
         document.body.style.backgroundColor = color;
     }
 }
+
+
+function hideLoader() {
+    $('.loader').removeClass('__active');
+}
