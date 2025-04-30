@@ -63,8 +63,8 @@
                         </div>
                     </div>
                     <div class="btns-rate-wrp">
-                        <button @onclick='() => SavePostToInterests(item)' class="like @(Model.LikedPosts.Contains(item) ? "active" : "")"></button>
-                        <button @onclick='() => RemovePostFromInterests(item)' class="dislike @(Model.DislikedPosts.Contains(item) ? "active" : "")"></button>
+                        <button @onclick='() => SavePostToInterests(item)' class="like @(Model.LikedPosts.Contains(item) ? "active" : "")" title="Like"></button>
+                        <button @onclick='() => RemovePostFromInterests(item)' class="dislike @(Model.DislikedPosts.Contains(item) ? "active" : "")" title="Dislike"></button>
                     </div>
                 </div>
             }

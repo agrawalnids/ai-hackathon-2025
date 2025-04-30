@@ -244,27 +244,30 @@ textarea {
     .btns-rate-wrp {
         bottom: 0;
         display: flex;
-        gap: 5px;
         right: 0;
         padding: 0 1rem 1rem 0;
         position: absolute;
 
         button {
             background: no-repeat center;
+            border-radius: 50%;
             display: block;
-            height: 32px;
-            width: 32px;
+            height: 36px;
+            width: 36px;
 
             &:before {
+                background-position: center;
+                background-repeat: no-repeat;
+                background-size: 28px;
                 content: '';
                 display: block;
-                height: 32px;
-                width: 32px;
+                height: 100%;
             }
 
             &.active {
                 background-color: $color_blue_light; //temp
             }
+
             &.like {
                 &:before {
                     background-image: url('/images/icon-like.svg');
