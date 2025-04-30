@@ -251,6 +251,9 @@ textarea {
                 width: 32px;
             }
 
+            &.active {
+                background-color: $color_blue_light; //temp
+            }
             &.like {
                 &:before {
                     background-image: url('/images/icon-like.svg');
