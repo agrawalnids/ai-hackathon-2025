@@ -20,7 +20,7 @@
 else
 {
     <div class="content-wrp">
-       <h1>Hey There!</h1>
+        <h1>Hey There!</h1>
 
         @if (!IsOnboardingComplete)
         {
@@ -63,19 +63,16 @@ else
     {
         if (firstRender)
         {
+            var lastVisitTimestamp = await JSRuntime.InvokeAsync<string?>("getCookie", "lastVisitTimestamp");
+            IsExperienceAvailable = !string.IsNullOrEmpty(lastVisitTimestamp);
 
-            IsExperienceAvailable = await JSRuntime.InvokeAsync<bool>("isCookieExpired", "lastVisitTimestamp");
+            // Check if onboarding is already complete or not
+            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
+            IsOnboardingComplete = cookieValue == "true";
 
-            if (IsExperienceAvailable)
-            {
-                // Check if onboarding is already complete or not
-                var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
-                IsOnboardingComplete = cookieValue == "true";
-
-                //Get user profile name
-                var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-                UserProfileName = profileName;
-            }
+            //Get user profile name
+            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+            UserProfileName = profileName;
 
             IsLoading = false;
 

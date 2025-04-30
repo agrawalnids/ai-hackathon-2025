@@ -31,28 +31,6 @@ function setCookieHours(name, value, hours) {
     document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/";
 }
 
-
-function isCookieExpired(name) {
-    console.log(name);
-    var cookieValue = getCookie(name);
-    if (cookieValue) {
-        var cookieParts = cookieValue.split(';');
-        console.log(cookieParts);
-        for (var i = 0; i < cookieParts.length; i++) {
-            var part = cookieParts[i].trim();
-            if (part.startsWith("expires=")) {
-                var expires = new Date(part.substring("expires=".length));
-                console.log(expires);
-                return expires < new Date();
-            }
-        }
-    }
-
-    console.log(cookieValue);
-    return true; // Cookie not found or expired
-}
-
-
 function updateBackgroundColor(color) {
     if (color) {
         document.body.style.backgroundColor = color;
