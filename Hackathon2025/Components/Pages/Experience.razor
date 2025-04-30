@@ -30,7 +30,15 @@
         {
 
             <div class="mood-music-wrp">
+                 @if (Model.MoodAudio.StartsWith("<iframe"))
+                 {
                 @((MarkupString)Model.MoodAudio)
+                } 
+                else
+                {
+                <iframe src="@Model.MoodAudio"></iframe>
+                }
+               
                 <button @onclick='() => ToggleMoodAudio("play")' class="__play"><img src="/images/icon-audio.png" /></button>
                 <button @onclick='() => ToggleMoodAudio("stop")'  class="__stop __hide"><img src="/images/icon-mute-audio.png" /></button>
             </div>
@@ -46,6 +54,7 @@
                     <iframe src="@item.URL"  title="@item.Title"></iframe>
                     <div class="row">
                         <div class="col">
+                            <MudChip T="string" Color="Color.Primary" Class="mb-4">@item.Category</MudChip>
                             <p class="title">@item.Title</p>
                             <p class="description">@item.Summary</p>
                         </div>
@@ -108,7 +117,7 @@
 
         foreach (var item in results)
         {
-            onboardingContext += item.Key + ": " + item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty);
+            onboardingContext += String.Format("{0}, ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
         }
 
 
