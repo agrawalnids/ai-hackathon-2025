@@ -1,0 +1,47 @@
+﻿@page "/see-you-later"
+@using MoodMate.Abstractions
+@using LangChain.Providers
+@using Microsoft.SemanticKernel
+@using OpenAI;
+@using OpenAI.Chat;
+@using System.ClientModel;
+@using System.Text.Json;
+@using System.ComponentModel.DataAnnotations
+
+@inject InterestsAgentService AgentService
+@inject VectorStoreService VectorStoreService
+
+<PageTitle>See You Later</PageTitle>
+
+@if (IsLoading)
+{
+    <LoadingOverlay ShowOnLoadClass="__active" />
+}
+else
+{
+    <div class="content-wrp">
+        <h1>Time's Up!</h1>
+        <p class="align-center mt-4">
+            See you in two hours :)
+        </p>
+    </div>
+}
+
+@code {
+    private bool IsLoading { get; set; } = true;
+    private bool IsOnboardingComplete { get; set; } = false;
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            // Set Cookie of Last Visit Timestamp
+            await JSRuntime.InvokeVoidAsync("setCookieHours", "lastVisitTimestamp", "active", "2");
+
+            await JSRuntime.InvokeVoidAsync("hideLoader");
+
+            IsLoading = false;
+            StateHasChanged();
+        }
+    }
+}

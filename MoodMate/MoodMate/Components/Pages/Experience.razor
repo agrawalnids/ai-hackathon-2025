@@ -1,0 +1,411 @@
+﻿@page "/experience"
+@using MoodMate.Abstractions
+@using OpenAI
+@using OpenAI.Chat
+@using System.ClientModel
+@using System.Text.Json
+@inject InterestsAgentService AgentService
+@inject VectorStoreService VectorStoreService
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
+
+<PageTitle>Experience</PageTitle>
+@if (Model != null)
+{
+    if (Model.DiscoveryFeed != null)
+    {
+        //timed experience
+        <div id="timer" class="timer">05:00</div>
+    }
+    <div class="mood-setter-wrp">
+        <span class="label">I feel</span>
+        <div class="btns-wrp">
+            @foreach (var mood in Model.ExperienceMoods)
+            {
+                <button @onclick="() => SetCurrentMood(mood)" class="@(Model.CurrentMood ==  mood ? "active" : "")" title="@mood">
+                    <span class="img-wrp"><img src='@String.Format("/images/icon-{0}.png", mood)' /></span>
+                    @mood
+                </button>
+            }
+        </div>
+    </div>
+    @if (!string.IsNullOrEmpty(Model.MoodAudio))
+    {
+
+        <div class="mood-music-wrp">
+            @if (Model.MoodAudio.StartsWith("<iframe"))
+            {
+                @((MarkupString)Model.MoodAudio)
+            }
+            else
+            {
+                <iframe src="@Model.MoodAudio"></iframe>
+            }
+
+            <button @onclick='() => ToggleMoodAudio("play")' class="__play"><img src="/images/icon-audio.png" /></button>
+            <button @onclick='() => ToggleMoodAudio("stop")' class="__stop __hide"><img src="/images/icon-mute-audio.png" /></button>
+        </div>
+    }
+    @if (Model.DiscoveryFeed != null)
+    {
+        <div class="content-wrp __scrollable">
+
+            @* //present activity gallery *@
+            @foreach (var item in Model.DiscoveryFeed)
+            {
+                <div class="card">
+                    <iframe src="@item.URL" title="@item.Title"></iframe>
+                    <div class="row">
+                        <div class="col">
+                            <MudChip T="string" Color="MudBlazor.Color.Primary" Class="mb-4">@item.Category</MudChip>
+                            <p class="title">@item.Title</p>
+                            <p class="description">@item.Summary</p>
+                        </div>
+                    </div>
+                    <div class="btns-rate-wrp">
+                        <button @onclick='() => SavePostToInterests(item)' class="like @(Model.LikedPosts.Contains(item) ? "active" : "")" title="Like"></button>
+                        <button @onclick='() => RemovePostFromInterests(item)' class="dislike @(Model.DislikedPosts.Contains(item) ? "active" : "")" title="Dislike"></button>
+                    </div>
+                </div>
+            }
+
+        </div>
+    }
+}
+
+<LoadingOverlay ShowOnLoadClass="__active" />
+
+@code {
+    public ExperienceViewModel? Model { get; set; }
+    public ChatClient? Client { get; set; }
+    public DotNetObjectReference<Experience>? DotNetReference { get; set; }
+    public ChatCompletionOptions? Options { get; set; }
+
+    protected override async Task OnInitializedAsync()
+    {
+        Model ??= new(); //init model
+
+        //set feed mode based on current time in EST
+        var timeUtc = DateTime.UtcNow;
+        TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
+        DateTime easternTime = TimeZoneInfo.ConvertTimeFromUtc(timeUtc, easternZone);
+
+        Model.IsProductivityMode = (easternTime.Hour > 8 && easternTime.Hour < 17);
+
+        await Task.CompletedTask;
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            await JSRuntime.InvokeVoidAsync("updateBackgroundColor", "yellow"); //initial color
+
+            await GenerateDiscoveryFeed();
+            DotNetReference = DotNetObjectReference.Create(this);
+
+            //start the 5 minute timer
+            await JSRuntime.InvokeVoidAsync("startTimer", DotNetReference);
+        }
+    }
+
+    /// <summary>
+    /// Tweak the experience based on mood selected by user
+    /// </summary>
+    /// <returns></returns>
+    private async Task SetupMood()
+    {
+        //get user likes & user dislikes from vector DB to add context
+        string userOnboardingInterestsContext = "Get all user likes and interests";
+
+        Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userOnboardingInterestsContext);
+
+        string onboardingContext = string.Empty;
+
+        foreach (var item in results)
+        {
+            onboardingContext += String.Format("{0}, ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
+        }
+
+
+        // Get discovery feed content from chat model based on interests retrieved and learned
+        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, a song (a youtube iframe embed link to it) that would improve the my mood when I am feeling {0}. My interests and likes are {1}. Based on the provided context, make the best recommendations.", Model.CurrentMood, onboardingContext);
+
+
+        Model.ExperienceChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(experienceConfigPrompt),
+            new AssistantChatMessage(Model.ExperienceGreeting),
+            new UserChatMessage("I feel " + Model.CurrentMood)
+        };
+
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""backgroundcolour"": { ""type"": ""string"" },
+                ""song"": { ""type"": ""string"" }
+            },
+            ""required"": [""backgroundcolour"", ""song""],
+            ""additionalProperties"": false
+        }
+        ";
+
+        ChatCompletion interestsResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "experience_schema", Model.ExperienceChatHistory);
+
+        using JsonDocument structuredJson = JsonDocument.Parse(interestsResponse.Content[0].Text);
+
+
+        //set the experience background color
+        var bgColor = structuredJson.RootElement.GetProperty("backgroundcolour").ToString();
+        await JSRuntime.InvokeVoidAsync("updateBackgroundColor", bgColor);
+
+
+        //set the experience audio if available
+        string audioUrl = structuredJson.RootElement.GetProperty("song").ToString();
+
+        bool isUrlValid = await VectorStoreService.IsUrlValid(audioUrl);
+
+        Model.MoodAudio = isUrlValid ? audioUrl : string.Empty;
+
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+
+    /// <summary>
+    /// When timer ends, save any liked content to the vector db for future
+    /// </summary>
+    /// <returns></returns>
+    [JSInvokable("ProcessInterests")]
+    public async Task ProcessInterests()
+    {
+        await JSRuntime.InvokeVoidAsync("showLoader");
+
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+        //save all interests
+        List<VectorDataModel> likedInterests = new List<VectorDataModel>();
+
+        foreach (ContentItemModel post in Model.LikedPosts)
+        {
+            likedInterests.Add(new VectorDataModel()
+                {
+                    Data = post.ContentType + ": " + post.Title + post.Summary,
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Category"] = post.Category,
+                        ["Description"] = post.Description,
+                        ["Label"] = post.Title,
+                        ["UserName"] = profileName
+                    }
+                });
+        }
+
+
+        await VectorStoreService.SaveToVectorStoreAsync(likedInterests);
+
+        //redirect to times up
+        NavigationManager.NavigateTo("/see-you-later");
+    }
+
+
+    /// <summary>
+    /// Update liked and disliked posts list
+    /// </summary>
+    /// <param name="post"></param>
+    /// <returns></returns>
+    private async Task SavePostToInterests(ContentItemModel post)
+    {
+        Model.LikedPosts.Add(post);
+        if (Model.DislikedPosts.Count > 0)
+        {
+            if (Model.DislikedPosts.Contains(post))
+            {
+                Model.DislikedPosts.Remove(post);
+            }
+        }
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+
+    }
+
+
+    /// <summary>
+    /// Update liked and disliked posts list
+    /// </summary>
+    /// <param name="post"></param>
+    /// <returns></returns>
+    private async Task RemovePostFromInterests(ContentItemModel post)
+    {
+        if (Model.LikedPosts.Count > 0)
+        {
+            if (Model.LikedPosts.Contains(post))
+            {
+                Model.LikedPosts.Remove(post);
+            }
+        }
+        Model.DislikedPosts.Add(post);
+
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+
+    }
+
+
+    /// <summary>
+    /// Avoid memory leak
+    /// </summary>
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        if (DotNetReference != null)
+        {
+            DotNetReference.Dispose();
+        }
+    }
+
+
+    /// <summary>
+    /// Generate discovery feed based on user interests and current mood
+    /// </summary>
+    /// <returns></returns>
+    private async Task GenerateDiscoveryFeed()
+    {
+        //empty feed
+        Model!.DiscoveryFeed = new List<ContentItemModel>();
+
+        string userLikesInterests = "Get user's personal interests and professional interests";
+
+        Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userLikesInterests);
+
+        string onboardingContext = String.Empty;
+
+        foreach (var item in results)
+        {
+            onboardingContext += String.Format("{0}, ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
+        }
+
+        var contentGenerationPrompt = $@"
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to boost productivity. ";
+
+        if (!Model.IsProductivityMode)
+        {
+            contentGenerationPrompt = $@"
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to help me wind down. ";
+        }
+
+        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. Provide the topic/subject of the article as category. For videos and audio, provide youtube embed iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
+
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""contentitems"": {
+                    ""type"": ""array"",
+                    ""items"": {
+                        ""type"": ""object"",
+                        ""properties"": {
+                            ""title"": { ""type"": ""string"" },
+                            ""sourceurl"": { ""type"": ""string"" },
+                            ""description"": { ""type"": ""string"" },
+                            ""summary"": { ""type"": ""string"" },
+                            ""contentType"": { ""type"": ""string"" },
+                            ""category"": { ""type"" : ""string""}
+                        },
+                        ""required"": [""title"", ""sourceurl"", ""description"", ""summary"", ""category"", ""contentType""],
+                        ""additionalProperties"": false
+                    }
+                }
+            },
+            ""required"": [""contentitems""],
+            ""additionalProperties"": false
+        }
+        ";
+
+        Model.ExperienceChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(contentGenerationPrompt)
+        };
+
+        ChatCompletion feedResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "discovery_feed_schema", Model.ExperienceChatHistory);
+
+
+        using JsonDocument structuredJson = JsonDocument.Parse(feedResponse.Content[0].Text);
+
+        JsonElement.ArrayEnumerator contentItemsJson = structuredJson.RootElement.GetProperty("contentitems").EnumerateArray();
+
+        foreach (JsonElement contentItem in contentItemsJson)
+        {
+            ContentItemModel item = new ContentItemModel
+                {
+                    Title = contentItem.GetProperty("title").ToString(),
+                    URL = contentItem.GetProperty("sourceurl").ToString(),
+                    Description = contentItem.GetProperty("description").ToString(),
+                    Summary = contentItem.GetProperty("summary").ToString(),
+                    ContentType = contentItem.GetProperty("contentType").ToString(),
+                    Category = contentItem.GetProperty("category").ToString()
+                };
+
+            Model.DiscoveryFeed.Add(item);
+        }
+
+        StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("hideLoader");
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Switch current mood
+    /// </summary>
+    /// <param name="mood"></param>
+    /// <returns></returns>
+    private async Task SetCurrentMood(string mood)
+    {
+        await JSRuntime.InvokeVoidAsync("showLoader");
+        Model.CurrentMood = mood;
+        Model.MoodAudio = string.Empty;
+
+        //Get experience set up based on mood + interests/likes
+        await SetupMood();
+
+        //Generate Discovery Feed
+        await GenerateDiscoveryFeed();
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+    }
+
+
+    /// <summary>
+    /// Allow play/pause of mood audio
+    /// </summary>
+    /// <param name="state"></param>
+    /// <returns></returns>
+    private async Task ToggleMoodAudio(string state)
+    {
+        await JSRuntime.InvokeVoidAsync("playMoodAudio", state);
+    }
+
+
+    public class ExperienceViewModel
+    {
+        public List<ChatMessage>? ExperienceChatHistory { get; set; }
+        public string? ExperienceGreeting { get; set; } = "How are you feeling today?";
+        public List<string> ExperienceMoods { get; set; } = new List<string>() { "fantastic", "happy", "neutral", "meh", "sad" };
+        public string? CurrentMood { get; set; } = "happy";
+        public List<ContentItemModel>? DiscoveryFeed { get; set; } = new List<ContentItemModel>();
+        public List<ContentItemModel>? LikedPosts { get; set; } = new List<ContentItemModel>();
+        public List<ContentItemModel>? DislikedPosts { get; set; } = new List<ContentItemModel>();
+
+        public bool IsProductivityMode { get; set; } = true;
+        public string? MoodAudio { get; set; }
+    }
+}

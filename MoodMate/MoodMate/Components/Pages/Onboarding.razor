@@ -1,0 +1,227 @@
+﻿@page "/onboarding"
+@using MoodMate.Abstractions
+@using MoodMate.Services
+@using OpenAI
+@using OpenAI.Chat
+@using System.ClientModel
+@using System.Text.Json
+@inject InterestsAgentService AgentService
+@inject VectorStoreService VectorStoreService
+@inject IConfiguration Configuration;
+
+<PageTitle>Onboarding</PageTitle>
+
+<div class="content-wrp align-center">
+    @if (Model != null)
+    {
+        if (Model.OnboardingTopics != null)
+        {
+            if (Model.IsOnboardingComplete)
+            {
+                <h1 class="align-center">Onboarded!</h1>
+
+                <p class="align-center mt-4">
+                    <a href="/experience" class="button"><span>Continue</span></a>
+                </p>
+            }
+            else
+            {
+                if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
+                {
+                    <h1>@Model!.OnboardingGreeting</h1>
+                }
+
+                <form @onsubmit="SaveTopicsAndProceed">
+                    <MudSelect T="TopicModel" Label="Topics" MultiSelection="true" @bind-SelectedValues="Model.SelectedOnboardingTopics">
+                        @foreach (var topic in Model.OnboardingTopics)
+                        {
+                            <MudSelectItem T="TopicModel" Value="@topic">@topic.Title</MudSelectItem>
+                        }
+                    </MudSelect>
+
+
+                    <p class="align-center mt-4">
+                        <button type="submit" class="button"><span>I'm Done</span></button>
+                    </p>
+                </form>
+
+            }
+        }
+
+    }
+    <LoadingOverlay ShowOnLoadClass="__active" />
+</div>
+
+@code {
+
+    public OnboardingViewModel? Model { get; set; }
+    public ChatClient? Client { get; set; }
+    public ChatCompletionOptions? Options { get; set; }
+    public string? ProfileName { get; set; }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            ProfileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+            //Get onboarding questions ready
+            await SetupOnboarding();
+        }
+    }
+
+    /// <summary>
+    /// Sets up the initial conversation between the system and chat agent to instruct the agent
+    /// </summary>
+    /// <returns></returns>
+    private async Task SetupOnboarding()
+    {
+        Model ??= new(); //init model
+        Model.OnboardingGreeting = "Pick your interests";
+
+        var onboardingConfigPrompt = @"You are a Mental Health expert with over 20 years of experience.
+                Your goal is to understand the user's likes, personal and professional interests.
+                Generate a list of 20 topics that are categorized as Personal, Professional and Home with a 2-3 sentence description of the topic.
+        ";
+
+        Model.OnboardingChatHistory = new List<ChatMessage>()
+        {
+            new SystemChatMessage(onboardingConfigPrompt),
+        };
+
+        string jsonSchema = @"
+        {
+            ""type"": ""object"",
+            ""properties"": {
+                ""topics"": {
+                    ""type"": ""array"",
+                    ""items"": {
+                        ""type"": ""object"",
+                        ""properties"": {
+                            ""title"": { ""type"": ""string"" },
+                            ""description"": { ""type"": ""string"" },
+                            ""category"": { ""type"" : ""string""}
+                        },
+                        ""required"": [""title"", ""description"", ""category""],
+                        ""additionalProperties"": false
+                    }
+                }
+            },
+            ""required"": [""topics""],
+            ""additionalProperties"": false
+        }
+        ";
+
+        ChatCompletion onboardingResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "onboarding_schema", Model.OnboardingChatHistory);
+
+        using JsonDocument structuredJson = JsonDocument.Parse(onboardingResponse.Content[0].Text);
+
+
+        // Append the model response to the chat history.
+        Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.OnboardingGreeting));
+
+
+        JsonElement.ArrayEnumerator onboardingQuestionsJson = structuredJson.RootElement.GetProperty("topics").EnumerateArray();
+        Model.OnboardingTopics = new List<TopicModel>();
+
+        foreach (JsonElement questionElement in onboardingQuestionsJson)
+        {
+            TopicModel topicModel = new()
+                {
+                    Title = questionElement.GetProperty("title").ToString(),
+                    Description = questionElement.GetProperty("description").ToString(),
+                    Category = questionElement.GetProperty("category").ToString(),
+                };
+
+            Model.OnboardingTopics.Add(topicModel);
+        }
+
+        await JSRuntime.InvokeVoidAsync("hideLoader");
+
+        StateHasChanged();
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Save user picks to vector DB
+    /// </summary>
+    /// <returns></returns>
+    private async Task SaveTopicsAndProceed()
+    {
+        List<VectorDataModel> onboardingDataList = new List<VectorDataModel>();
+
+        foreach (TopicModel topic in Model.SelectedOnboardingTopics)
+        {
+            onboardingDataList.Add(new VectorDataModel()
+                {
+                    Data = topic.Description,
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Category"] = topic.Category,
+                        ["Description"] = topic.Description,
+                        ["Label"] = topic.Title,
+                        ["UserName"] = ProfileName
+                    }
+                });
+        }
+
+
+        await VectorStoreService.SaveToVectorStoreAsync(onboardingDataList);
+
+        Model.IsOnboardingComplete = true;
+
+        // Save cookie that onboarding is complete
+        await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
+
+        //Update user XP
+        await JSRuntime.InvokeVoidAsync("setCookie", "userXP", "10", "365");
+        Snackbar.Add("Achievement Unlocked: ONBOARDED!", Severity.Success);
+
+        StateHasChanged();
+
+
+
+        await Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Model that holds all values by Onboarding page
+    /// </summary>
+    public class OnboardingViewModel
+    {
+        public List<ChatMessage>? OnboardingChatHistory { get; set; }
+        public string? OnboardingGreeting { get; set; }
+        public List<TopicModel>? OnboardingTopics { get; set; }
+        public IEnumerable<TopicModel>? SelectedOnboardingTopics = new HashSet<TopicModel>();
+        public string? CurrentQuestion { get; set; }
+        public string? CurrentResponse { get; set; }
+        public int Counter { get; set; } = 0;
+        public bool IsOnboardingComplete { get; set; } = false;
+    }
+
+    /// <summary>
+    /// IEquatable is required for complex objects, because otherwise the framework will compare the references
+    /// Which will not be equal when comparing the list of items and the selected item.
+    /// </summary>
+    public class TopicModel : IEquatable<TopicModel>
+    {
+
+        public string Title { get; set; }
+        public string Description { get; set; }
+        public string Category { get; set; }
+
+        public bool Equals(TopicModel? other)
+        {
+            if (ReferenceEquals(null, other)) return false;
+            if (ReferenceEquals(this, other)) return true;
+            return Title == other.Title;
+        }
+
+        public override bool Equals(object? obj) => obj is TopicModel state && Equals(state);
+
+        public override int GetHashCode() => Title.GetHashCode();
+
+        // Also important to override ToString, otherwise the object will be displayed as the full class name
+        public override string ToString() => Title;
+    }
+}

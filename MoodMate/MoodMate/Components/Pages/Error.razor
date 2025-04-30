@@ -1,0 +1,45 @@
+﻿@page "/Error/{ResponseCode:int}"
+@using System.Diagnostics
+@inject IHttpContextAccessor HttpContextAccessor;
+
+<PageTitle>Error</PageTitle>
+
+<h1>Error</h1>
+<h2 class="text-danger">@ResponseCode</h2>
+
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; }
+
+    [Parameter]
+    public int? ResponseCode { get; set; }
+
+    /// <summary>
+    /// Handles incoming Response Code
+    /// </summary>
+    /// <returns></returns>
+    protected override async Task OnInitializedAsync()
+    {
+        if (HttpContextAccessor != null)
+        {
+            if (HttpContextAccessor.HttpContext != null)
+            {
+                int responseCode = 200;
+
+                try
+                {
+                    responseCode = Convert.ToInt32(ResponseCode);
+                }
+                catch (Exception ex)
+                {
+                    //error
+                    responseCode = 500;
+                }
+
+                HttpContextAccessor.HttpContext.Response.StatusCode = responseCode;
+            }
+        }
+
+        await Task.CompletedTask;
+    }
+}

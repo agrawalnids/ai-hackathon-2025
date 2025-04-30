@@ -1,0 +1,98 @@
+﻿@page "/tab"
+
+@using Microsoft.Extensions.Configuration
+@using Microsoft.AspNetCore.Hosting
+@using Microsoft.Extensions.Hosting
+@using MoodMate.Abstractions
+@inject TeamsUserCredential teamsUserCredential
+@inject IWebHostEnvironment HostEnvironment
+@inject IConfiguration Configuration
+@inject NavigationManager MyNavigationManager
+
+@inject InterestsAgentService AgentService
+@inject VectorStoreService VectorStoreService
+
+<PageTitle>MoodMate</PageTitle>
+
+@if (IsLoading)
+{
+    <LoadingOverlay ShowOnLoadClass="__active" />
+}
+else
+{
+    <div class="content-wrp">
+        <h1>Hey There!</h1>
+
+        @if (!IsOnboardingComplete)
+        {
+            <MudTextField @bind-Value="UserProfileName" @bind-Value:after="CreateProfileNameCookie" Label="What can I call you?" Variant="Variant.Text" Class="mt-4"></MudTextField>
+
+            if (!string.IsNullOrEmpty(UserProfileName))
+            {
+                <p class="align-center mt-4">
+                    <a href="/onboarding" class="button"><span>Let's Checkin</span></a>
+                </p>
+            }
+        }
+        else
+        {
+            if (IsExperienceAvailable)
+            {
+                <p class="align-center mt-4">
+                    <a href="/experience" class="button"><span>Let's Checkin</span></a>
+                </p>
+            }
+            else
+            {
+                <p class="align-center mt-4">
+                    It is not break time yet :)
+                </p>
+            }
+
+        }
+    </div>
+}
+
+@code {
+    private bool IsLoading { get; set; } = true;
+    private bool IsOnboardingComplete { get; set; } = false;
+    private bool IsExperienceAvailable { get; set; } = false;
+    private string UserProfileName { get; set; } = "UserName";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var lastVisitTimestamp = await JSRuntime.InvokeAsync<string?>("getCookie", "lastVisitTimestamp");
+            IsExperienceAvailable = string.IsNullOrEmpty(lastVisitTimestamp);
+
+            // Check if onboarding is already complete or not
+            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
+            IsOnboardingComplete = cookieValue == "true";
+
+            //Get user profile name
+            UserProfileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+            IsLoading = false;
+
+            StateHasChanged();
+
+            await JSRuntime.InvokeVoidAsync("hideLoader");
+
+        }
+    }
+
+
+    /// <summary>
+    /// Set user profile name cookie
+    /// </summary>
+    /// <returns></returns>
+    private async Task CreateProfileNameCookie()
+    {
+        // Save cookie with selected userprofilename
+        await JSRuntime.InvokeVoidAsync("setCookie", "profileName", UserProfileName, "365");
+        await JSRuntime.InvokeVoidAsync("setProfileName", UserProfileName);
+
+        Snackbar.Add("Profile Created!", Severity.Info);
+    }
+}
