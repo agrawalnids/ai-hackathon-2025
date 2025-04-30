@@ -166,7 +166,11 @@
         var bgColor = structuredJson.RootElement.GetProperty("backgroundcolour").ToString();
         await JSRuntime.InvokeVoidAsync("updateBackgroundColor", bgColor);
 
-        Model.MoodAudio = structuredJson.RootElement.GetProperty("song").ToString();
+        string audioUrl = structuredJson.RootElement.GetProperty("song").ToString();
+
+        bool isUrlValid = await VectorStoreService.IsUrlValid(audioUrl);
+
+        Model.MoodAudio = isUrlValid ? audioUrl : string.Empty;
 
         StateHasChanged();
         await Task.CompletedTask;
@@ -186,7 +190,7 @@
         {
             likedInterests.Add(new VectorDataModel()
                 {
-                    Data = post.ContentType + post.Title + post.Summary,
+                    Data = post.ContentType + ": " + post.Title + post.Summary,
                     MetaData = new Dictionary<string, object>
                     {
                         ["Category"] = post.Category,
