@@ -45,3 +45,5 @@ Changing the mood dynamically updates the content feed, ensuring relevance and e
 - Microsoft ASP.NET Core Blazor (C#)
 - Compatible with Azure App Service or any .NET-compatible host
 
+## Next Steps
+We aim to convert this into a custom Microsoft Teams app to provide a seamless experience during short breaks while at work. 
