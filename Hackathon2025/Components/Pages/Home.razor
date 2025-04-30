@@ -87,5 +87,6 @@ else
     {
         // Save cookie with selected userprofilename
         await JSRuntime.InvokeVoidAsync("setCookie", "profileName", UserProfileName, "365");
+        await JSRuntime.InvokeVoidAsync("setProfileName", UserProfileName);
     }
 }

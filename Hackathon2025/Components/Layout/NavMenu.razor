@@ -1,8 +1,7 @@
 ﻿@inject IJSRuntime JSRuntime;
 
-<aside>
-    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary">@firstLetter</MudAvatar>
-    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary">B</MudAvatar>
+<aside id="nav" class="@(!string.IsNullOrEmpty(firstLetter) ? "show" : "")">
+    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary" id="profileName">@firstLetter</MudAvatar>
 </aside>
 
 @code {

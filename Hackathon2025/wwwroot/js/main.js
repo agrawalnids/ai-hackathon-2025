@@ -91,3 +91,11 @@ function startTimer(dotnetObjectReference) {
         remainingTime--;
     }, 1000);
 }
+
+function setProfileName(name) {
+    if (name) {
+        var firstLetter = name.substring(0, 1);
+        document.getElementById("profileName").textContent = firstLetter;
+        document.getElementById("nav").classList.add('active');
+    }
+}
