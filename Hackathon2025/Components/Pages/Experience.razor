@@ -212,6 +212,13 @@
     private async Task SavePostToInterests(ContentItemModel post)
     {
         Model.LikedPosts.Add(post);
+        if (Model.DislikedPosts.Count > 0)
+        {
+            if (Model.DislikedPosts.Contains(post))
+            {
+                Model.DislikedPosts.Remove(post);
+            }
+        }
 
         StateHasChanged();
 
@@ -336,7 +343,7 @@
 
         JsonElement.ArrayEnumerator contentItemsJson = structuredJson.RootElement.GetProperty("contentitems").EnumerateArray();
 
-        List<ContentItemModel> initialResults = new List<ContentItemModel>();
+        // List<ContentItemModel> initialResults = new List<ContentItemModel>();
 
         foreach (JsonElement contentItem in contentItemsJson)
         {
@@ -350,18 +357,18 @@
                     Category = contentItem.GetProperty("category").ToString()
                 };
 
-            initialResults.Add(item);
+            Model.DiscoveryFeed.Add(item);
         }
 
 
-        foreach (var item in initialResults)
-        {
-            bool isItemHasSource = await VectorStoreService.IsUrlValid(item.URL);
-            if (isItemHasSource)
-            {
-                Model.DiscoveryFeed.Add(item);
-            }
-        }
+        // foreach (var item in initialResults)
+        // {
+        //     bool isItemHasSource = await VectorStoreService.IsUrlValid(item.URL);
+        //     if (isItemHasSource)
+        //     {
+        //         Model.DiscoveryFeed.Add(item);
+        //     }
+        // }
 
 
         StateHasChanged();

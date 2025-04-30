@@ -64,7 +64,7 @@ else
         if (firstRender)
         {
             var lastVisitTimestamp = await JSRuntime.InvokeAsync<string?>("getCookie", "lastVisitTimestamp");
-            IsExperienceAvailable = !string.IsNullOrEmpty(lastVisitTimestamp);
+            IsExperienceAvailable = string.IsNullOrEmpty(lastVisitTimestamp);
 
             // Check if onboarding is already complete or not
             var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
