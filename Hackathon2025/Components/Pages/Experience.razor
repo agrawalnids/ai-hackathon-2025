@@ -22,7 +22,10 @@
             <div class="btns-wrp">
                 @foreach (var mood in Model.ExperienceMoods)
                 {
-                    <button @onclick="() => SetCurrentMood(mood)" title="@mood"><img src='@String.Format("/images/icon-{0}.png", mood)' /></button>
+                    <button @onclick="() => SetCurrentMood(mood)" class="@(Model.CurrentMood ==  mood ? "active" : "")" title="@mood">
+                        <span class="img-wrp"><img src='@String.Format("/images/icon-{0}.png", mood)' /></span>
+                        @mood
+                    </button>
                 }
             </div>
         </div>

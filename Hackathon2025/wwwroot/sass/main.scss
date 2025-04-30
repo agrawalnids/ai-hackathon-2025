@@ -299,11 +299,30 @@ textarea {
         gap: 1rem;
 
         button {
-            height: 50px;
-            width: 50px;
+            flex-direction: column;
+            font-size: 0.75rem;
+            text-transform: capitalize;
+
+            .img-wrp {
+                height: 54px;
+                width: 54px;
+            }
 
             img {
+                border: 3px solid $color_white;
+                border-radius: 50%;
                 width: 100%;
+            }
+
+            &.active {
+                .img-wrp {
+                    background-color: $color_orange_dark;
+                    box-shadow: 0 0 5px $color_orange_dark;
+                }
+
+                img {
+                    border-color: $color_orange_dark;
+                }
             }
         }
     }
