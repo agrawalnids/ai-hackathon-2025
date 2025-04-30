@@ -5,6 +5,17 @@
     <MudBadge Origin="@Origin" Content="@BadgeContent" Color="Color.Primary" Overlap="true">
         <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Error" Style="height:70px; width:70px; font-size:2rem;" />
     </MudBadge>
+    @if (BadgeContent != "0")
+    {
+        <MudIconButton Href="/onboarding"
+            Icon="@Icons.Material.Filled.ChangeCircle"
+            Class="nav-btn"
+            Color="Color.Secondary"
+                       Size="Size.Large"
+                       Style="height:70px; width:70px; font-size:2rem;">
+        </MudIconButton>
+    }
+
 </aside>
 
 @code {

@@ -35,7 +35,7 @@
                 <MudSelect T="TopicModel" Label="Topics" MultiSelection="true" @bind-SelectedValues="Model.SelectedOnboardingTopics">
                     @foreach (var topic in Model.OnboardingTopics)
                     {
-                        <MudSelectItem T="TopicModel" Value="@topic">@topic.Title</MudSelectItem>
+                        <MudSelectItem T="TopicModel" Value="@topic">@topic.Description</MudSelectItem>
                     }
                 </MudSelect>
 

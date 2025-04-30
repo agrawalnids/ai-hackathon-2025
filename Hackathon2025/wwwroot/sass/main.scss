@@ -377,3 +377,12 @@ textarea {
     background-color: $color_orange_light;
     border-radius:100%;
 }
+
+.nav-btn {
+    background:$color_black;
+    padding:0;
+    .mud-icon-root {
+        height: 100%;
+        width: 100%;
+    }
+}
