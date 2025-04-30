@@ -185,6 +185,8 @@
         // Save cookie that onboarding is complete
         await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
 
+        await JSRuntime.InvokeVoidAsync("setCookie", "userXP", "10", "365");
+        Snackbar.Add("Achievement Unlocked: ONBOARDED!", Severity.Success);
 
         StateHasChanged();
 

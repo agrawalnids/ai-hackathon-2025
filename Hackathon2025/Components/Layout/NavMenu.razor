@@ -1,11 +1,16 @@
 ﻿@inject IJSRuntime JSRuntime;
 
-<aside id="nav" class="@(!string.IsNullOrEmpty(firstLetter) ? "show" : "")">
-    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary" id="profileName">@firstLetter</MudAvatar>
+<aside id="nav" class="@(!string.IsNullOrEmpty(FirstLetter) ? "show" : "")">
+    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary" id="profileName">@FirstLetter</MudAvatar>
+    <MudBadge Origin="@Origin" Content="@BadgeContent" Color="Color.Primary" Overlap="true">
+        <MudIcon Icon="@Icons.Material.Filled.Star" Color="Color.Error" Style="height:70px; width:70px; font-size:2rem;" />
+    </MudBadge>
 </aside>
 
 @code {
-    private string firstLetter = "";
+    private string FirstLetter = string.Empty;
+    private Origin Origin { get; set; } = Origin.TopRight;
+    public string BadgeContent { get; set; } = "0";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
@@ -14,9 +19,16 @@
             var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
             if (!string.IsNullOrEmpty(cookieValue))
             {
-                firstLetter = cookieValue.Substring(0, 1).ToUpper();
-                StateHasChanged();
+                FirstLetter = cookieValue.Substring(0, 1).ToUpper();
             }
         }
+
+        var userXP = await JSRuntime.InvokeAsync<string>("getCookie", "userXP");
+        if (!string.IsNullOrEmpty(userXP))
+        {
+            BadgeContent = userXP;
+        }
+
+        StateHasChanged();
     }
 }

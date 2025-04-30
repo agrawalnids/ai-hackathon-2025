@@ -2,6 +2,7 @@ using Hackathon2025.Abstractions;
 using Hackathon2025.Components;
 using JavaScriptEngineSwitcher.Extensions.MsDependencyInjection;
 using JavaScriptEngineSwitcher.V8;
+using MudBlazor;
 using MudBlazor.Services;
 //using Microsoft.SemanticKernel;
 //using OpenAI.VectorStores;
@@ -25,7 +26,18 @@ builder.Services.AddHttpClient();
 builder.Services.AddSingleton<OnboardingAgentService>();
 builder.Services.AddSingleton<VectorStoreService>();
 
-builder.Services.AddMudServices();
+builder.Services.AddMudServices(config =>
+{
+    config.SnackbarConfiguration.PositionClass = Defaults.Classes.Position.TopRight;
+
+    config.SnackbarConfiguration.PreventDuplicates = true;
+    config.SnackbarConfiguration.NewestOnTop = false;
+    config.SnackbarConfiguration.ShowCloseIcon = true;
+    config.SnackbarConfiguration.VisibleStateDuration = 5000;
+    config.SnackbarConfiguration.HideTransitionDuration = 500;
+    config.SnackbarConfiguration.ShowTransitionDuration = 500;
+    config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
+});
 
 
 var app = builder.Build();

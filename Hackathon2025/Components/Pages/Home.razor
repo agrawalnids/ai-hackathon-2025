@@ -11,7 +11,7 @@
 @inject OnboardingAgentService AgentService
 @inject VectorStoreService VectorStoreService
 
-<PageTitle>Home</PageTitle>
+<PageTitle>MoodMate</PageTitle>
 
 @if (IsLoading)
 {
@@ -88,5 +88,7 @@ else
         // Save cookie with selected userprofilename
         await JSRuntime.InvokeVoidAsync("setCookie", "profileName", UserProfileName, "365");
         await JSRuntime.InvokeVoidAsync("setProfileName", UserProfileName);
+
+        Snackbar.Add("Profile Created!", Severity.Info);
     }
 }
