@@ -71,7 +71,7 @@ function showLoader() {
 
 function startTimer(dotnetObjectReference) {
     const countdownElement = document.getElementById('timer'); // Ensure this element exists in your HTML
-    const duration = 1 * 60; // 5 minutes in seconds
+    const duration = 5 * 60; // 5 minutes in seconds
     let remainingTime = duration;
 
     const timerInterval = setInterval(() => {

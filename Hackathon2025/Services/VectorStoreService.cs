@@ -67,7 +67,7 @@ namespace Hackathon2025.Abstractions
 
             var queryResult = await collectionClient.Query(
                 queryEmbeddings: queryEmbedding,
-                nResults: 2,
+                nResults: 5,
                 include: ChromaQueryInclude.Metadatas | ChromaQueryInclude.Distances);
 
             Dictionary<string, object> resultLists = new Dictionary<string, object>();

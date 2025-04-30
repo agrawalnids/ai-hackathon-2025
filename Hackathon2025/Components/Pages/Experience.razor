@@ -6,7 +6,8 @@
 @using System.Text.Json
 @inject OnboardingAgentService AgentService
 @inject VectorStoreService VectorStoreService
-@inject IConfiguration Configuration;
+@inject IConfiguration Configuration
+@inject NavigationManager NavigationManager
 
 <PageTitle>Experience</PageTitle>
     @if (Model != null)
@@ -96,11 +97,11 @@
         var model = Configuration["GithubOpenAI:Model"];
 
         //get user likes & user dislikes from vector DB to add context
-        string userOnboardingInterestsContext = "Get all user likes and dislikes";
+        string userOnboardingInterestsContext = "Get all user likes and interests";
 
         Dictionary<string, object> results = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userOnboardingInterestsContext);
 
-        string onboardingContext = "The user ";
+        string onboardingContext = string.Empty;
 
         foreach (var item in results)
         {
@@ -108,7 +109,7 @@
         }
 
 
-        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, a song (a youtube iframe embed link to it) that would improve the user's mood when they are feeling {0}. Context from previous interaction is {1}. Based on the provided context, make the best recommendation.", Model.CurrentMood, onboardingContext);
+        var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, a song (a youtube iframe embed link to it) that would improve the my mood when I am feeling {0}. My interests and likes are {1}. Based on the provided context, make the best recommendations.", Model.CurrentMood, onboardingContext);
 
 
         var openAIOptions = new OpenAIClientOptions()
@@ -160,14 +161,54 @@
     }
 
     [JSInvokable("ProcessInterests")]
-    public Task ProcessInterests()
+    public async Task ProcessInterests()
     {
-       //save all interests
+        await JSRuntime.InvokeVoidAsync("showLoader");
+
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+        //save all interests
+        List<VectorDataModel> likedInterests = new List<VectorDataModel>();
+
+        foreach (ContentItemModel post in Model.LikedPosts)
+        {
+            likedInterests.Add(new VectorDataModel()
+                {
+                    Data = post.ContentType + post.Title + post.Summary,
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Category"] = post.Category,
+                        ["Description"] = post.Description,
+                        ["Label"] = post.Title,
+                        ["UserName"] = profileName
+                    }
+                });
+        }
 
 
-       //redirect to times up
+        await VectorStoreService.SaveToVectorStoreAsync(likedInterests);
 
-        return Task.CompletedTask;
+        //save all dislikes
+        List<VectorDataModel> dislikedInterests = new List<VectorDataModel>();
+
+        foreach (ContentItemModel post in Model.DislikedPosts)
+        {
+            dislikedInterests.Add(new VectorDataModel()
+                {
+                    Data = post.ContentType + post.Title + post.Summary,
+                    MetaData = new Dictionary<string, object>
+                    {
+                        ["Category"] = "Dislikes",
+                        ["Description"] = post.Description,
+                        ["Label"] = post.Title,
+                        ["UserName"] = profileName
+                    }
+                });
+        }
+        await VectorStoreService.SaveToVectorStoreAsync(dislikedInterests);
+
+        //redirect to times up
+
+        NavigationManager.NavigateTo("/see-you-later");
     }
 
     private async Task SavePostToInterests(ContentItemModel post)
@@ -240,7 +281,19 @@
 
         foreach (var item in results)
         {
-            onboardingContext += String.Format("{0}. ", item.Value.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
+            onboardingContext += String.Format("{0}. ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
+        }
+
+
+        string userDislikedInterests = "Get information of all the records that have been labelled as Dislikes";
+
+        Dictionary<string, object> dislikeResults = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userDislikedInterests);
+
+        string dislikeContext = String.Empty;
+
+        foreach (var item in dislikeResults)
+        {
+            dislikeContext += String.Format("{0}. ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
         }
 
         var openAIOptions = new OpenAIClientOptions()
@@ -261,7 +314,7 @@
                 You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to help me wind down. ";
         }
 
-        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. For videos and audio, provide youtube iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Skip articles that do not have a valid sourceurl. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
+        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. Provide the topic/subject of the article as category. For videos and audio, provide youtube iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Skip articles that do not have a valid sourceurl. DO NOT show me articles that are related to my dislikes such as {dislikeContext}. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
 
         string jsonSchema = @"
         {
@@ -276,9 +329,10 @@
                             ""sourceurl"": { ""type"": ""string"" },
                             ""description"": { ""type"": ""string"" },
                             ""summary"": { ""type"": ""string"" },
-                            ""contentType"": { ""type"": ""string"" }
+                            ""contentType"": { ""type"": ""string"" },
+                            ""category"": { ""type"" : ""string""}
                         },
-                        ""required"": [""title"", ""sourceurl"", ""description"", ""summary"", ""contentType""],
+                        ""required"": [""title"", ""sourceurl"", ""description"", ""summary"", ""category"", ""contentType""],
                         ""additionalProperties"": false
                     }
                 }
@@ -320,7 +374,8 @@
                     URL = contentItem.GetProperty("sourceurl").ToString(),
                     Description = contentItem.GetProperty("description").ToString(),
                     Summary = contentItem.GetProperty("summary").ToString(),
-                    ContentType = contentItem.GetProperty("contentType").ToString()
+                    ContentType = contentItem.GetProperty("contentType").ToString(),
+                    Category = contentItem.GetProperty("category").ToString()
                 };
 
             initialResults.Add(item);
