@@ -36,7 +36,7 @@ else
         if (firstRender)
         {
             // Set Cookie of Last Visit Timestamp
-            await JSRuntime.InvokeVoidAsync("setCookieHours", "lastVisitTimestamp", "active", "365");
+            await JSRuntime.InvokeVoidAsync("setCookieHours", "lastVisitTimestamp", "active", "2");
 
             await JSRuntime.InvokeVoidAsync("hideLoader");
 

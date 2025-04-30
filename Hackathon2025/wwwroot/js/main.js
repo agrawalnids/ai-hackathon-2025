@@ -25,7 +25,7 @@ function setCookieHours(name, value, hours) {
     let expires = "";
     if (hours) {
         const date = new Date();
-        date.setTime(date.getTime() + (2 * 60 * 60 * 1000));
+        date.setTime(date.getTime() + (hours * 60 * 60 * 1000));
         expires = "; expires=" + date.toUTCString();
     }
     document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/";
