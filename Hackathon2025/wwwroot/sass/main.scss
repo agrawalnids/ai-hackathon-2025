@@ -60,6 +60,7 @@ body {
     border-radius: 10px;
     box-shadow: 5px 5px $color_blue_dark;
     display: flex;
+    overflow: hidden;
     position: relative;
     justify-content: center;
     height: 80%;
@@ -72,7 +73,7 @@ body {
         border-right: 2px solid $color_blue_dark;
         border-radius:10px 0 0 10px;
         position: absolute;
-        left: 0;
+        left: -150px;
         bottom: 0;
         top: 0;
         width: 150px;
@@ -81,6 +82,16 @@ body {
         gap: 2rem;
         padding: 2rem;
         align-items: center;
+        transition: all 300ms linear;
+
+        &.show {
+            transition: none;
+        }
+
+        &.active,
+        &.show {
+            left: 0;
+        }
     }
 }
 
@@ -194,11 +205,11 @@ textarea {
     position: relative;
 
     iframe {
-        height:400px;
+        height: 400px;
     }
 
     .col {
-        padding:1rem 0;
+        padding: 1rem 0;
     }
 
     .title {
@@ -207,7 +218,7 @@ textarea {
     }
 
     .description {
-        font-size:1.5rem;
+        font-size: 1.5rem;
     }
 
     .info-link {
