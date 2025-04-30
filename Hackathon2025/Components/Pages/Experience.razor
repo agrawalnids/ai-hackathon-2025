@@ -49,7 +49,7 @@
                     </div>
                     <div class="btns-rate-wrp">
                         <button @onclick='() => SavePostToInterests(item)' class="like"></button>
-                        <a href="#" class="dislike" title="Dislike"></a>
+                        <button @onclick='() => RemovePostFromInterests(item)' class="dislike"></button>
                     </div>
                 </div>
             }
@@ -166,6 +166,7 @@
         await JSRuntime.InvokeVoidAsync("showLoader");
 
         var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+        
         //save all interests
         List<VectorDataModel> likedInterests = new List<VectorDataModel>();
 
@@ -187,25 +188,6 @@
 
         await VectorStoreService.SaveToVectorStoreAsync(likedInterests);
 
-        //save all dislikes
-        List<VectorDataModel> dislikedInterests = new List<VectorDataModel>();
-
-        foreach (ContentItemModel post in Model.DislikedPosts)
-        {
-            dislikedInterests.Add(new VectorDataModel()
-                {
-                    Data = post.ContentType + post.Title + post.Summary,
-                    MetaData = new Dictionary<string, object>
-                    {
-                        ["Category"] = "Dislikes",
-                        ["Description"] = post.Description,
-                        ["Label"] = post.Title,
-                        ["UserName"] = profileName
-                    }
-                });
-        }
-        await VectorStoreService.SaveToVectorStoreAsync(dislikedInterests);
-
         //redirect to times up
 
         NavigationManager.NavigateTo("/see-you-later");
@@ -213,18 +195,7 @@
 
     private async Task SavePostToInterests(ContentItemModel post)
     {
-        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-
         Model.LikedPosts.Add(post);
-
-
-        if (Model.DislikedPosts.Count > 0)
-        {
-            if (Model.DislikedPosts.Contains(post))
-            {
-                Model.DislikedPosts.Remove(post);
-            }
-        }
 
         StateHasChanged();
 
@@ -234,10 +205,6 @@
 
     private async Task RemovePostFromInterests(ContentItemModel post)
     {
-        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-
-        Model.DislikedPosts.Add(post);
-
         if (Model.LikedPosts.Count > 0)
         {
             if (Model.LikedPosts.Contains(post))
@@ -281,19 +248,7 @@
 
         foreach (var item in results)
         {
-            onboardingContext += String.Format("{0}. ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
-        }
-
-
-        string userDislikedInterests = "Get information of all the records that have been labelled as Dislikes";
-
-        Dictionary<string, object> dislikeResults = await VectorStoreService.QueryOnboardingResultVectorStoreAsync(userDislikedInterests);
-
-        string dislikeContext = String.Empty;
-
-        foreach (var item in dislikeResults)
-        {
-            dislikeContext += String.Format("{0}. ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
+            onboardingContext += String.Format("{0}, ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
         }
 
         var openAIOptions = new OpenAIClientOptions()
@@ -314,7 +269,7 @@
                 You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to help me wind down. ";
         }
 
-        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. Provide the topic/subject of the article as category. For videos and audio, provide youtube iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Skip articles that do not have a valid sourceurl. DO NOT show me articles that are related to my dislikes such as {dislikeContext}. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
+        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. Provide the topic/subject of the article as category. For videos and audio, provide youtube embed iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
 
         string jsonSchema = @"
         {

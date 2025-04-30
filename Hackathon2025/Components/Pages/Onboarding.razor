@@ -13,11 +13,6 @@
 <div class="content-wrp align-center">
     @if (Model != null)
     {
-        if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
-        {
-            <h1>@Model!.OnboardingGreeting</h1>
-        }
-
         if (Model.OnboardingTopics != null)
         {
             if (Model.IsOnboardingComplete)
@@ -30,6 +25,11 @@
             }
             else
             {
+                if (!string.IsNullOrEmpty(Model.OnboardingGreeting))
+                {
+                    <h1>@Model!.OnboardingGreeting</h1>
+                }
+
                 <form @onsubmit="SaveTopicsAndProceed">
                 <MudSelect T="TopicModel" Label="Topics" MultiSelection="true" @bind-SelectedValues="Model.SelectedOnboardingTopics">
                     @foreach (var topic in Model.OnboardingTopics)
