@@ -20,6 +20,24 @@ namespace Hackathon2025.Abstractions
             _configuration = configuration;
         }
 
+
+        public async Task<bool> IsUrlValid(string url)
+        {
+            using (HttpClient client = new HttpClient())
+            {
+                try
+                {
+                    HttpResponseMessage response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+                    return response.IsSuccessStatusCode;
+                }
+                catch
+                {
+                    return false;
+                }
+            }
+        }
+
+
         public async Task<Dictionary<string, object>> QueryOnboardingResultVectorStoreAsync(string message)
         {
             var endpoint = _configuration["GithubOpenAI:AzureAIEndpoint"];

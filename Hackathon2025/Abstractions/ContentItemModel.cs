@@ -6,7 +6,6 @@
         public string Description { get; set; }
         public string URL { get; set; }
         public string ContentType { get; set; }
-        public string? ImageUrl { get; set; }
-        public string IsReal { get; set; }
+        public string? Summary { get; set; }
     }
 }

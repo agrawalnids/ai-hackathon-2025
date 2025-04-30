@@ -35,9 +35,19 @@ else
         }
         else
         {
-            <p class="align-center mt-4">
-                <a href="/experience" class="button"><span>Let's Checkin</span></a>
-            </p>
+            if (IsExperienceAvailable)
+            {
+                <p class="align-center mt-4">
+                    <a href="/experience" class="button"><span>Let's Checkin</span></a>
+                </p>
+            }
+            else
+            {
+                <p class="align-center mt-4">
+                    It is not break time yet :)
+                </p>
+            }
+
         }
     </div>
 }
@@ -45,6 +55,7 @@ else
 @code {
     private bool IsLoading { get; set; } = true;
     private bool IsOnboardingComplete { get; set; } = false;
+    private bool IsExperienceAvailable { get; set; } = false;
 
     private string UserProfileName { get; set; } = "UserName";
 
@@ -52,17 +63,26 @@ else
     {
         if (firstRender)
         {
+
+            IsExperienceAvailable = await JSRuntime.InvokeAsync<bool>("isCookieExpired", "lastVisitTimestamp");
+
+            if (IsExperienceAvailable)
+            {
+                // Check if onboarding is already complete or not
+                var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
+                IsOnboardingComplete = cookieValue == "true";
+
+                //Get user profile name
+                var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+                UserProfileName = profileName;
+            }
+
+            IsLoading = false;
+
+            StateHasChanged();
+
             await JSRuntime.InvokeVoidAsync("hideLoader");
 
-            // Check if onboarding is already complete or not
-            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "onboardingComplete");
-            IsOnboardingComplete = cookieValue == "true";
-
-            //Get user profile name
-            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-            UserProfileName = profileName;
-            IsLoading = false;
-            StateHasChanged();
         }
     }
 

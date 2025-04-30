@@ -21,6 +21,38 @@ function setCookie(name, value, days) {
     document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/";
 }
 
+function setCookieHours(name, value, hours) {
+    let expires = "";
+    if (hours) {
+        const date = new Date();
+        date.setTime(date.getTime() + (2 * 60 * 60 * 1000));
+        expires = "; expires=" + date.toUTCString();
+    }
+    document.cookie = name + "=" + encodeURIComponent(value) + expires + "; path=/";
+}
+
+
+function isCookieExpired(name) {
+    console.log(name);
+    var cookieValue = getCookie(name);
+    if (cookieValue) {
+        var cookieParts = cookieValue.split(';');
+        console.log(cookieParts);
+        for (var i = 0; i < cookieParts.length; i++) {
+            var part = cookieParts[i].trim();
+            if (part.startsWith("expires=")) {
+                var expires = new Date(part.substring("expires=".length));
+                console.log(expires);
+                return expires < new Date();
+            }
+        }
+    }
+
+    console.log(cookieValue);
+    return true; // Cookie not found or expired
+}
+
+
 function updateBackgroundColor(color) {
     if (color) {
         document.body.style.backgroundColor = color;
@@ -28,10 +60,11 @@ function updateBackgroundColor(color) {
 }
 
 function playMoodAudio(playOrStop) {
-
     if (playOrStop == 'play') {
         //as noted in addendum, check for querystring exitence
         var symbol = $(".mood-music-wrp iframe")[0].src.indexOf("?") > -1 ? "&" : "?";
+
+        console.log($(".mood-music-wrp iframe")[0].src);
 
         $(".mood-music-wrp").data('link', $(".mood-music-wrp iframe")[0].src);
 
@@ -54,9 +87,13 @@ function hideLoader() {
     $('.loader').removeClass('__active');
 }
 
-function startTimer() {
+function showLoader() {
+    $('.loader').addClass('__active');
+}
+
+function startTimer(dotnetObjectReference) {
     const countdownElement = document.getElementById('timer'); // Ensure this element exists in your HTML
-    const duration = 5 * 60; // 5 minutes in seconds
+    const duration = 1 * 60; // 5 minutes in seconds
     let remainingTime = duration;
 
     const timerInterval = setInterval(() => {
@@ -68,8 +105,9 @@ function startTimer() {
 
         if (remainingTime <= 0) {
             clearInterval(timerInterval);
-            // Optional: Add any action to perform when the timer ends
-            //alert('Time is up!');
+
+            //proceed to come back later screen
+            dotnetObjectReference.invokeMethodAsync("ProcessInterests");
         }
 
         remainingTime--;

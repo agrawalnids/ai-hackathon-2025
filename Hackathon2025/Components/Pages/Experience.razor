@@ -9,54 +9,60 @@
 @inject IConfiguration Configuration;
 
 <PageTitle>Experience</PageTitle>
-<div class="mood-setter-wrp">
-    @foreach(var mood in Model.ExperienceMoods)
-    {
-        <button @onclick="() => SetCurrentMood(mood)"><img src='@String.Format("/images/icon-{0}.png", mood)' /></button>
-    }
-</div>
-@if (!string.IsNullOrEmpty(Model.MoodAudio))
-{
-
-    <div class="mood-music-wrp">
-        @((MarkupString)Model.MoodAudio)
-        <button @onclick='() => ToggleMoodAudio("play")' class="__play"><img src="/images/icon-audio.png" /></button>
-        <button @onclick='() => ToggleMoodAudio("stop")'  class="__stop __hide"><img src="/images/icon-mute-audio.png" /></button>
-    </div>
-}
-
-<div class="content-wrp __scrollable">
     @if (Model != null)
     {
         if (Model.DiscoveryFeed != null)
         {
-            //present activity gallery
-            foreach (var item in Model.DiscoveryFeed)
+            //timed experience
+            <div id="timer" class="timer">05:00</div>
+        }
+        <div class="mood-setter-wrp">
+            @foreach(var mood in Model.ExperienceMoods)
             {
+                <button @onclick="() => SetCurrentMood(mood)"><img src='@String.Format("/images/icon-{0}.png", mood)' /></button>
+            }
+        </div>
+        @if (!string.IsNullOrEmpty(Model.MoodAudio))
+        {
 
+            <div class="mood-music-wrp">
+                @((MarkupString)Model.MoodAudio)
+                <button @onclick='() => ToggleMoodAudio("play")' class="__play"><img src="/images/icon-audio.png" /></button>
+                <button @onclick='() => ToggleMoodAudio("stop")'  class="__stop __hide"><img src="/images/icon-mute-audio.png" /></button>
+            </div>
+        }
+    @if (Model.DiscoveryFeed != null)
+    {
+        <div class="content-wrp __scrollable">
+
+            @* //present activity gallery *@
+            @foreach (var item in Model.DiscoveryFeed)
+            {
                 <div class="card">
                     <iframe src="@item.URL"  title="@item.Title"></iframe>
                     <div class="row">
                         <div class="col">
                             <p class="title">@item.Title</p>
-                            <p class="decription">@item.Description</p>
+                            <p class="description">@item.Summary</p>
                         </div>
                     </div>
                     <div class="btns-rate-wrp">
-                        <a href="#" class="like" title="Like"></a>
+                        <button @onclick='() => SavePostToInterests(item)' class="like"></button>
                         <a href="#" class="dislike" title="Dislike"></a>
                     </div>
                 </div>
             }
-        }
 
+        </div>
     }
-    <LoadingOverlay ShowOnLoadClass="__active" />
-</div>
+}
+
+<LoadingOverlay ShowOnLoadClass="__active" />
 
 @code {
     public ExperienceViewModel? Model { get; set; }
     public ChatClient? Client { get; set; }
+    public DotNetObjectReference<Experience>? DotNetReference { get; set; }
     public ChatCompletionOptions? Options { get; set; }
 
     protected override async Task OnInitializedAsync()
@@ -70,16 +76,17 @@
 
         Model.IsProductivityMode = (easternTime.Hour > 8 && easternTime.Hour < 17);
 
-
-        // await GenerateDiscoveryFeed();
-
-        // await JSRuntime.InvokeVoidAsync("hideLoader");
         await Task.CompletedTask;
     }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
-        // await JSRuntime.InvokeVoidAsync("startTimer");
+        if (firstRender)
+        {
+            await GenerateDiscoveryFeed();
+            DotNetReference = DotNetObjectReference.Create(this);
+            await JSRuntime.InvokeVoidAsync("startTimer", DotNetReference);
+        }
     }
 
     private async Task SetupMood()
@@ -148,15 +155,79 @@
 
         Model.MoodAudio = structuredJson.RootElement.GetProperty("song").ToString();
 
-        //TODO: do something with retrieved items
-
         StateHasChanged();
         await Task.CompletedTask;
+    }
+
+    [JSInvokable("ProcessInterests")]
+    public Task ProcessInterests()
+    {
+       //save all interests
+
+
+       //redirect to times up
+
+        return Task.CompletedTask;
+    }
+
+    private async Task SavePostToInterests(ContentItemModel post)
+    {
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+        Model.LikedPosts.Add(post);
+
+
+        if (Model.DislikedPosts.Count > 0)
+        {
+            if (Model.DislikedPosts.Contains(post))
+            {
+                Model.DislikedPosts.Remove(post);
+            }
+        }
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+
+    }
+
+    private async Task RemovePostFromInterests(ContentItemModel post)
+    {
+        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
+        Model.DislikedPosts.Add(post);
+
+        if (Model.LikedPosts.Count > 0)
+        {
+            if (Model.LikedPosts.Contains(post))
+            {
+                Model.LikedPosts.Remove(post);
+            }
+        }
+
+
+        StateHasChanged();
+
+        await Task.CompletedTask;
+
+    }
+
+    public void Dispose()
+    {
+        GC.SuppressFinalize(this);
+
+        if (DotNetReference != null)
+        {
+            DotNetReference.Dispose();
+        }
     }
 
 
     private async Task GenerateDiscoveryFeed()
     {
+        //empty feed
+        Model.DiscoveryFeed = new List<ContentItemModel>();
+
         var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
         var credential = Configuration["GithubOpenAI:Token"];
         var model = Configuration["GithubOpenAI:Model"];
@@ -182,15 +253,15 @@
 
 
         var contentGenerationPrompt = $@"
-                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 3 short-form content pieces (each under 5 minutes) to boost productivity. Prioritize videos, audio clips, or quick articles. Categorize them as videos, audio, article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}";
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to boost productivity. ";
 
         if (!Model.IsProductivityMode)
         {
             contentGenerationPrompt = $@"
-                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 3 short-form content pieces (each under 5 minutes) to help me wind down. Prioritize videos, audio clips, or quick articles. Categorize them as videos, audio, article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}";
+                You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to help me wind down. ";
         }
 
-        contentGenerationPrompt += "Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
+        contentGenerationPrompt += $@"Prioritize quick articles, news and upcoming events in Canada that related to my interests. For videos and audio, provide youtube iframes only if they are valid and working. Categorize them as videos, audio, article and provide a minimum 200 word summary of the article. Make sure they are practical, uplifting, and high quality and also related to my interests: {onboardingContext}. Skip articles that do not have a valid sourceurl. Respond in structured JSON list format. DO NOT generate explanations - just the raw JSON list";
 
         string jsonSchema = @"
         {
@@ -204,9 +275,10 @@
                             ""title"": { ""type"": ""string"" },
                             ""sourceurl"": { ""type"": ""string"" },
                             ""description"": { ""type"": ""string"" },
+                            ""summary"": { ""type"": ""string"" },
                             ""contentType"": { ""type"": ""string"" }
                         },
-                        ""required"": [""title"", ""sourceurl"", ""description"", ""contentType""],
+                        ""required"": [""title"", ""sourceurl"", ""description"", ""summary"", ""contentType""],
                         ""additionalProperties"": false
                     }
                 }
@@ -238,6 +310,8 @@
 
         JsonElement.ArrayEnumerator contentItemsJson = structuredJson.RootElement.GetProperty("contentitems").EnumerateArray();
 
+        List<ContentItemModel> initialResults = new List<ContentItemModel>();
+
         foreach (JsonElement contentItem in contentItemsJson)
         {
             ContentItemModel item = new ContentItemModel
@@ -245,26 +319,42 @@
                     Title = contentItem.GetProperty("title").ToString(),
                     URL = contentItem.GetProperty("sourceurl").ToString(),
                     Description = contentItem.GetProperty("description").ToString(),
+                    Summary = contentItem.GetProperty("summary").ToString(),
                     ContentType = contentItem.GetProperty("contentType").ToString()
                 };
 
-            Model.DiscoveryFeed.Add(item);
+            initialResults.Add(item);
         }
 
+
+        foreach (var item in initialResults)
+        {
+            bool isItemHasSource = await VectorStoreService.IsUrlValid(item.URL);
+            if (isItemHasSource)
+            {
+                Model.DiscoveryFeed.Add(item);
+            }
+        }
+
+
         StateHasChanged();
+
+        await JSRuntime.InvokeVoidAsync("hideLoader");
         await Task.CompletedTask;
     }
 
 
     private async Task SetCurrentMood(string mood)
     {
+        await JSRuntime.InvokeVoidAsync("showLoader");
         Model.CurrentMood = mood;
+        Model.MoodAudio = string.Empty;
 
         //Get experience set up based on mood + interests/likes
         await SetupMood();
 
         //Generate Discovery Feed
-        //await GenerateDiscoveryFeed();
+        await GenerateDiscoveryFeed();
 
         StateHasChanged();
 
@@ -284,8 +374,8 @@
         public List<string> ExperienceMoods { get; set; } = new List<string>() { "fantastic", "happy", "neutral", "meh", "sad" };
         public string? CurrentMood { get; set; } = "happy";
         public List<ContentItemModel>? DiscoveryFeed { get; set; } = new List<ContentItemModel>();
-
-
+        public List<ContentItemModel>? LikedPosts { get; set; } = new List<ContentItemModel>();
+        public List<ContentItemModel>? DislikedPosts { get; set; } = new List<ContentItemModel>();
 
         public bool IsProductivityMode { get; set; } = true;
         public string? MoodAudio { get; set; }
