@@ -1,18 +1,38 @@
 ﻿@inherits LayoutComponentBase
+@inject NavigationManager NavigationManager;
 
 @* Required *@
 <MudThemeProvider />
 <MudPopoverProvider />
 
-@* Needed for dialogs *@
-<MudDialogProvider />
-
 @* Needed for snackbars *@
 <MudSnackbarProvider />
-
 <div class="main">
     <div class="container">
-        <NavMenu/>
-        @Body
+        <NavMenu />
+        <ErrorBoundary @ref="errorBoundary">
+            <ChildContent>
+            @Body
+        </ChildContent>
+        <ErrorContent Context="ex">
+                <h1>Internal Server Error</h1>
+            <button type="button" class="button" @onclick="RecoverFromError"><span>Go back</span></button>
+        </ErrorContent>
+    </ErrorBoundary>
     </div>
 </div>
+@code {
+    [CascadingParameter]
+    private HttpContext? HttpContext { get; set; } = default!;
+
+    private ErrorBoundary? errorBoundary;
+
+    /// <summary>
+    /// Error hit
+    /// </summary>
+    private void RecoverFromError()
+    {
+        errorBoundary?.Recover();
+        NavigationManager.NavigateTo("/", true);
+    }
+}

@@ -1,10 +1,11 @@
 ﻿@page "/onboarding"
 @using Hackathon2025.Abstractions
+@using Hackathon2025.Services
 @using OpenAI
 @using OpenAI.Chat
 @using System.ClientModel
 @using System.Text.Json
-@inject OnboardingAgentService AgentService
+@inject InterestsAgentService AgentService
 @inject VectorStoreService VectorStoreService
 @inject IConfiguration Configuration;
 
@@ -17,10 +18,10 @@
         {
             if (Model.IsOnboardingComplete)
             {
-                <h1 class="align-center">Thank you!</h1>
+                <h1 class="align-center">Onboarded!</h1>
 
                 <p class="align-center mt-4">
-                    <a href="/experience" class="button"><span>Proceed to Main Experience</span></a>
+                    <a href="/experience" class="button"><span>Continue</span></a>
                 </p>
             }
             else
@@ -56,36 +57,32 @@
     public OnboardingViewModel? Model { get; set; }
     public ChatClient? Client { get; set; }
     public ChatCompletionOptions? Options { get; set; }
+    public string? ProfileName { get; set; }
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)
         {
+            ProfileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+
             //Get onboarding questions ready
             await SetupOnboarding();
         }
     }
 
+    /// <summary>
+    /// Sets up the initial conversation between the system and chat agent to instruct the agent
+    /// </summary>
+    /// <returns></returns>
     private async Task SetupOnboarding()
     {
-        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
-        var credential = Configuration["GithubOpenAI:Token"];
-        var model = Configuration["GithubOpenAI:Model"];
+        Model ??= new(); //init model
+        Model.OnboardingGreeting = "Pick your interests";
 
         var onboardingConfigPrompt = @"You are a Mental Health expert with over 20 years of experience.
                 Your goal is to understand the user's likes, personal and professional interests.
                 Generate a list of 20 topics that are categorized as Personal, Professional and Home with a 2-3 sentence description of the topic.
         ";
-
-
-        var openAIOptions = new OpenAIClientOptions()
-            {
-                Endpoint = new Uri(endpoint)
-            };
-
-        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
-
-        Model ??= new(); //init model
 
         Model.OnboardingChatHistory = new List<ChatMessage>()
         {
@@ -115,20 +112,10 @@
         }
         ";
 
-        Options = new()
-        {
-            ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                jsonSchemaFormatName: "onboarding_topics",
-                jsonSchema: BinaryData.FromString(jsonSchema),
-                jsonSchemaIsStrict: true)
-        };
+        ChatCompletion onboardingResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "onboarding_schema", Model.OnboardingChatHistory);
 
-        ChatCompletion response1 = await Client.CompleteChatAsync(Model.OnboardingChatHistory, Options);
+        using JsonDocument structuredJson = JsonDocument.Parse(onboardingResponse.Content[0].Text);
 
-
-        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
-
-        Model.OnboardingGreeting = "Pick your interests";
 
         // Append the model response to the chat history.
         Model.OnboardingChatHistory.Add(new AssistantChatMessage(Model.OnboardingGreeting));
@@ -143,7 +130,7 @@
             {
                 Title= questionElement.GetProperty("title").ToString(),
                 Description = questionElement.GetProperty("description").ToString(),
-                    Category = questionElement.GetProperty("category").ToString(),
+                Category = questionElement.GetProperty("category").ToString(),
             };
 
             Model.OnboardingTopics.Add(topicModel);
@@ -155,11 +142,12 @@
         await Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Save user picks to vector DB
+    /// </summary>
+    /// <returns></returns>
     private async Task SaveTopicsAndProceed()
     {
-
-        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-
         List<VectorDataModel> onboardingDataList = new List<VectorDataModel>();
 
         foreach (TopicModel topic in Model.SelectedOnboardingTopics)
@@ -172,7 +160,7 @@
                         ["Category"] = topic.Category,
                         ["Description"] = topic.Description,
                         ["Label"] = topic.Title,
-                        ["UserName"] = profileName
+                        ["UserName"] = ProfileName
                     }
                 });
         }
@@ -185,6 +173,7 @@
         // Save cookie that onboarding is complete
         await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
 
+        //Update user XP
         await JSRuntime.InvokeVoidAsync("setCookie", "userXP", "10", "365");
         Snackbar.Add("Achievement Unlocked: ONBOARDED!", Severity.Success);
 
@@ -195,7 +184,9 @@
         await Task.CompletedTask;
     }
 
-
+    /// <summary>
+    /// Model that holds all values by Onboarding page
+    /// </summary>
     public class OnboardingViewModel
     {
         public List<ChatMessage>? OnboardingChatHistory { get; set; }
@@ -208,12 +199,12 @@
         public bool IsOnboardingComplete { get; set; } = false;
     }
 
-
+    /// <summary>
+    /// IEquatable is required for complex objects, because otherwise the framework will compare the references
+    /// Which will not be equal when comparing the list of items and the selected item.
+    /// </summary>
     public class TopicModel : IEquatable<TopicModel>
     {
-        // IEquatable is required for complex objects, because otherwise the framework will compare the references
-        // Which will not be equal when comparing the list of items and the selected item.
-        // Alternatively you can implement IEqualityComparer separately and pass it to Comparer in MudSelect if you have no control over the object
 
         public string Title { get; set; }
         public string Description { get; set; }

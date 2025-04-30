@@ -4,7 +4,7 @@
 @using OpenAI.Chat
 @using System.ClientModel
 @using System.Text.Json
-@inject OnboardingAgentService AgentService
+@inject InterestsAgentService AgentService
 @inject VectorStoreService VectorStoreService
 @inject IConfiguration Configuration
 @inject NavigationManager NavigationManager
@@ -85,7 +85,7 @@
     {
         Model ??= new(); //init model
 
-
+        //set feed mode based on current time in EST
         var timeUtc = DateTime.UtcNow;
         TimeZoneInfo easternZone = TimeZoneInfo.FindSystemTimeZoneById("Eastern Standard Time");
         DateTime easternTime = TimeZoneInfo.ConvertTimeFromUtc(timeUtc, easternZone);
@@ -99,18 +99,22 @@
     {
         if (firstRender)
         {
+            await JSRuntime.InvokeVoidAsync("updateBackgroundColor", "yellow"); //initial color
+
             await GenerateDiscoveryFeed();
             DotNetReference = DotNetObjectReference.Create(this);
+
+            //start the 5 minute timer
             await JSRuntime.InvokeVoidAsync("startTimer", DotNetReference);
         }
     }
 
+    /// <summary>
+    /// Tweak the experience based on mood selected by user
+    /// </summary>
+    /// <returns></returns>
     private async Task SetupMood()
     {
-        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
-        var credential = Configuration["GithubOpenAI:Token"];
-        var model = Configuration["GithubOpenAI:Model"];
-
         //get user likes & user dislikes from vector DB to add context
         string userOnboardingInterestsContext = "Get all user likes and interests";
 
@@ -124,21 +128,15 @@
         }
 
 
+        // Get discovery feed content from chat model based on interests retrieved and learned
         var experienceConfigPrompt = String.Format("You are a Mental Health expert with over 20 years of experience with specialization in mood. Your goal is to recommend a background colour, a song (a youtube iframe embed link to it) that would improve the my mood when I am feeling {0}. My interests and likes are {1}. Based on the provided context, make the best recommendations.", Model.CurrentMood, onboardingContext);
 
-
-        var openAIOptions = new OpenAIClientOptions()
-            {
-                Endpoint = new Uri(endpoint)
-            };
-
-        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
 
         Model.ExperienceChatHistory = new List<ChatMessage>()
         {
             new SystemChatMessage(experienceConfigPrompt),
             new AssistantChatMessage(Model.ExperienceGreeting),
-            new UserChatMessage(Model.CurrentMood)
+            new UserChatMessage("I feel " + Model.CurrentMood)
         };
 
         string jsonSchema = @"
@@ -153,22 +151,17 @@
         }
         ";
 
-        Options = new()
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                    jsonSchemaFormatName: "experience_setup",
-                    jsonSchema: BinaryData.FromString(jsonSchema),
-                    jsonSchemaIsStrict: true)
-            };
+        ChatCompletion interestsResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "experience_schema", Model.ExperienceChatHistory);
 
-        ChatCompletion response1 = await Client.CompleteChatAsync(Model.ExperienceChatHistory, Options);
+        using JsonDocument structuredJson = JsonDocument.Parse(interestsResponse.Content[0].Text);
 
 
-        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
-
+        //set the experience background color
         var bgColor = structuredJson.RootElement.GetProperty("backgroundcolour").ToString();
         await JSRuntime.InvokeVoidAsync("updateBackgroundColor", bgColor);
 
+
+        //set the experience audio if available
         string audioUrl = structuredJson.RootElement.GetProperty("song").ToString();
 
         bool isUrlValid = await VectorStoreService.IsUrlValid(audioUrl);
@@ -179,13 +172,18 @@
         await Task.CompletedTask;
     }
 
+
+    /// <summary>
+    /// When timer ends, save any liked content to the vector db for future
+    /// </summary>
+    /// <returns></returns>
     [JSInvokable("ProcessInterests")]
     public async Task ProcessInterests()
     {
         await JSRuntime.InvokeVoidAsync("showLoader");
 
         var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-        
+
         //save all interests
         List<VectorDataModel> likedInterests = new List<VectorDataModel>();
 
@@ -208,10 +206,15 @@
         await VectorStoreService.SaveToVectorStoreAsync(likedInterests);
 
         //redirect to times up
-
         NavigationManager.NavigateTo("/see-you-later");
     }
 
+
+    /// <summary>
+    /// Update liked and disliked posts list
+    /// </summary>
+    /// <param name="post"></param>
+    /// <returns></returns>
     private async Task SavePostToInterests(ContentItemModel post)
     {
         Model.LikedPosts.Add(post);
@@ -229,6 +232,12 @@
 
     }
 
+
+    /// <summary>
+    /// Update liked and disliked posts list
+    /// </summary>
+    /// <param name="post"></param>
+    /// <returns></returns>
     private async Task RemovePostFromInterests(ContentItemModel post)
     {
         if (Model.LikedPosts.Count > 0)
@@ -247,6 +256,10 @@
 
     }
 
+
+    /// <summary>
+    /// Avoid memory leak
+    /// </summary>
     public void Dispose()
     {
         GC.SuppressFinalize(this);
@@ -258,14 +271,14 @@
     }
 
 
+    /// <summary>
+    /// Generate discovery feed based on user interests and current mood
+    /// </summary>
+    /// <returns></returns>
     private async Task GenerateDiscoveryFeed()
     {
         //empty feed
-        Model.DiscoveryFeed = new List<ContentItemModel>();
-
-        var endpoint = Configuration["GithubOpenAI:ChatEndpoint"];
-        var credential = Configuration["GithubOpenAI:Token"];
-        var model = Configuration["GithubOpenAI:Model"];
+        Model!.DiscoveryFeed = new List<ContentItemModel>();
 
         string userLikesInterests = "Get user's personal interests and professional interests";
 
@@ -277,15 +290,6 @@
         {
             onboardingContext += String.Format("{0}, ", item.Key.ToString().Replace("[", string.Empty).Replace("]", string.Empty));
         }
-
-        var openAIOptions = new OpenAIClientOptions()
-        {
-            Endpoint = new Uri(endpoint)
-        };
-
-        Client = new ChatClient(model, new ApiKeyCredential(credential), openAIOptions);
-
-
 
         var contentGenerationPrompt = $@"
                 You are a Mental Health expert with over 20 years of experience. Based on my current mood, {Model.CurrentMood}, give me 10 short-form content pieces (each under 5 minutes) to boost productivity. ";
@@ -324,29 +328,17 @@
         }
         ";
 
-
-
-        Options = new()
-            {
-                ResponseFormat = ChatResponseFormat.CreateJsonSchemaFormat(
-                        jsonSchemaFormatName: "discovery_feed_setup",
-                        jsonSchema: BinaryData.FromString(jsonSchema),
-                        jsonSchemaIsStrict: true)
-            };
-
         Model.ExperienceChatHistory = new List<ChatMessage>()
         {
             new SystemChatMessage(contentGenerationPrompt)
         };
 
-        ChatCompletion response1 = await Client.CompleteChatAsync(Model.ExperienceChatHistory, Options);
+        ChatCompletion feedResponse = await AgentService.GetChatCompletionResponse(jsonSchema, "discovery_feed_schema", Model.ExperienceChatHistory);
 
 
-        using JsonDocument structuredJson = JsonDocument.Parse(response1.Content[0].Text);
+        using JsonDocument structuredJson = JsonDocument.Parse(feedResponse.Content[0].Text);
 
         JsonElement.ArrayEnumerator contentItemsJson = structuredJson.RootElement.GetProperty("contentitems").EnumerateArray();
-
-        // List<ContentItemModel> initialResults = new List<ContentItemModel>();
 
         foreach (JsonElement contentItem in contentItemsJson)
         {
@@ -363,24 +355,17 @@
             Model.DiscoveryFeed.Add(item);
         }
 
-
-        // foreach (var item in initialResults)
-        // {
-        //     bool isItemHasSource = await VectorStoreService.IsUrlValid(item.URL);
-        //     if (isItemHasSource)
-        //     {
-        //         Model.DiscoveryFeed.Add(item);
-        //     }
-        // }
-
-
         StateHasChanged();
 
         await JSRuntime.InvokeVoidAsync("hideLoader");
         await Task.CompletedTask;
     }
 
-
+    /// <summary>
+    /// Switch current mood
+    /// </summary>
+    /// <param name="mood"></param>
+    /// <returns></returns>
     private async Task SetCurrentMood(string mood)
     {
         await JSRuntime.InvokeVoidAsync("showLoader");
@@ -398,6 +383,12 @@
         await Task.CompletedTask;
     }
 
+
+    /// <summary>
+    /// Allow play/pause of mood audio
+    /// </summary>
+    /// <param name="state"></param>
+    /// <returns></returns>
     private async Task ToggleMoodAudio(string state)
     {
         await JSRuntime.InvokeVoidAsync("playMoodAudio", state);

@@ -8,14 +8,14 @@
 @using System.Text.Json;
 @using System.ComponentModel.DataAnnotations
 
-@inject OnboardingAgentService AgentService
+@inject InterestsAgentService AgentService
 @inject VectorStoreService VectorStoreService
 
 <PageTitle>MoodMate</PageTitle>
 
 @if (IsLoading)
 {
-    <LoadingOverlay />
+    <LoadingOverlay ShowOnLoadClass="__active"/>
 }
 else
 {
@@ -56,7 +56,6 @@ else
     private bool IsLoading { get; set; } = true;
     private bool IsOnboardingComplete { get; set; } = false;
     private bool IsExperienceAvailable { get; set; } = false;
-
     private string UserProfileName { get; set; } = "UserName";
 
     protected override async Task OnAfterRenderAsync(bool firstRender)
@@ -71,8 +70,7 @@ else
             IsOnboardingComplete = cookieValue == "true";
 
             //Get user profile name
-            var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
-            UserProfileName = profileName;
+            UserProfileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName"); 
 
             IsLoading = false;
 
@@ -83,6 +81,11 @@ else
         }
     }
 
+
+    /// <summary>
+    /// Set user profile name cookie
+    /// </summary>
+    /// <returns></returns>
     private async Task CreateProfileNameCookie()
     {
         // Save cookie with selected userprofilename

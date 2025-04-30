@@ -12,6 +12,11 @@
     private Origin Origin { get; set; } = Origin.TopRight;
     public string BadgeContent { get; set; } = "0";
 
+    /// <summary>
+    /// Initialize avatar icon and XP icon
+    /// </summary>
+    /// <param name="firstRender"></param>
+    /// <returns></returns>
     protected override async Task OnAfterRenderAsync(bool firstRender)
     {
         if (firstRender)

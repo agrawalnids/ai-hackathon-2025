@@ -6,70 +6,78 @@ using ChromaDB.Client;
 using System.Net.Http;
 using System;
 using LangChain.Providers;
+using Hackathon2025.Services;
+using Microsoft.Extensions.Configuration;
 
 namespace Hackathon2025.Abstractions
 {
     public class VectorStoreService
     {
         private readonly HttpClient _httpClient;
-        private readonly IConfiguration _configuration;
+        static readonly GithubModelsConfig Config = ConfigurationHelper.GithubModelsConfig;
 
-        public VectorStoreService(HttpClient httpClient, IConfiguration configuration)
+        public VectorStoreService(HttpClient httpClient)
         {
             _httpClient = httpClient;
-            _configuration = configuration;
         }
 
-
+        /// <summary>
+        /// Check if the URL returned by chat model is valid
+        /// </summary>
+        /// <param name="url"></param>
+        /// <returns></returns>
         public async Task<bool> IsUrlValid(string url)
         {
-            using (HttpClient client = new HttpClient())
+            using HttpClient client = new();
+            try
             {
-                try
-                {
-                    HttpResponseMessage response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
-                    return response.IsSuccessStatusCode;
-                }
-                catch
-                {
-                    return false;
-                }
+                HttpResponseMessage response = await client.SendAsync(new HttpRequestMessage(HttpMethod.Head, url));
+                return response.IsSuccessStatusCode;
+            }
+            catch
+            {
+                return false;
             }
         }
 
-
+        /// <summary>
+        /// Get results from vector DB
+        /// </summary>
+        /// <param name="message">semantic query</param>
+        /// <returns></returns>
         public async Task<Dictionary<string, object>> QueryOnboardingResultVectorStoreAsync(string message)
         {
-            var endpoint = _configuration["GithubOpenAI:AzureAIEndpoint"];
-            var credential = _configuration["GithubOpenAI:Token"];
-            var model = _configuration["GithubOpenAI:AzureEmbeddingModel"];
+            //locally deployed
+            var chromaOptions = new ChromaConfigurationOptions(uri: "http://localhost:8000/api/v1/");
+            var client = new ChromaClient(chromaOptions, _httpClient);
 
-
-            var configOptions = new ChromaConfigurationOptions(uri: "http://localhost:8000/api/v1/");
-            var client = new ChromaClient(configOptions, _httpClient);
-
-            var openAIOptions2 = new OpenAIClientOptions()
+            //embedding options
+            var openAIOptions = new OpenAIClientOptions()
             {
-                Endpoint = new Uri(endpoint)
-
+                Endpoint = new Uri(Config.AzureAIEndpoint)
             };
 
-            var client2 = new EmbeddingClient(model, new ApiKeyCredential(credential), openAIOptions2);
+            var embeddingClient = new EmbeddingClient(Config.AzureEmbeddingModel, new ApiKeyCredential(Config.Token), openAIOptions);
 
-            OpenAIEmbedding response = await client2.GenerateEmbeddingAsync(message);
+            OpenAIEmbedding response = await embeddingClient.GenerateEmbeddingAsync(message);
 
-            ReadOnlyMemory<float> vector1 = response.ToFloats();
+
+            //convert response to vector
+            ReadOnlyMemory<float> vector = response.ToFloats();
+
+            List<ReadOnlyMemory<float>> queryEmbedding = [vector];
 
             var collection = await client.GetOrCreateCollection("kitkat");
-            var collectionClient = new ChromaCollectionClient(collection, configOptions, _httpClient);
+            var collectionClient = new ChromaCollectionClient(collection, chromaOptions, _httpClient);
 
-            List<ReadOnlyMemory<float>> queryEmbedding = [vector1];
-
+            //query embedding
             var queryResult = await collectionClient.Query(
                 queryEmbeddings: queryEmbedding,
                 nResults: 5,
                 include: ChromaQueryInclude.Metadatas | ChromaQueryInclude.Distances);
 
+
+            //Get results
             Dictionary<string, object> resultLists = new Dictionary<string, object>();
 
             foreach (var result in queryResult)
@@ -83,33 +91,35 @@ namespace Hackathon2025.Abstractions
             return resultLists;
         }
 
+
+        /// <summary>
+        /// Save vectors to DB
+        /// </summary>
+        /// <param name="vectorDataList"></param>
+        /// <returns></returns>
         public async Task SaveToVectorStoreAsync(List<VectorDataModel> vectorDataList)
         {
-            var endpoint = _configuration["GithubOpenAI:AzureAIEndpoint"];
-            var credential = _configuration["GithubOpenAI:Token"];
-            var model = _configuration["GithubOpenAI:AzureEmbeddingModel"];
 
+            var chromaOptions = new ChromaConfigurationOptions(uri: "http://localhost:8000/api/v1/");
+            var client = new ChromaClient(chromaOptions, _httpClient);
 
-            var configOptions = new ChromaConfigurationOptions(uri: "http://localhost:8000/api/v1/");
-            var client = new ChromaClient(configOptions, _httpClient);
-
-            var openAIOptions2 = new OpenAIClientOptions()
+            //embedding options
+            var openAIOptions = new OpenAIClientOptions()
             {
-                Endpoint = new Uri(endpoint)
-
+                Endpoint = new Uri(Config.AzureAIEndpoint)
             };
 
-            var client2 = new EmbeddingClient(model, new ApiKeyCredential(credential), openAIOptions2);
-
+            var embeddingClient = new EmbeddingClient(Config.AzureEmbeddingModel, new ApiKeyCredential(Config.Token), openAIOptions);
 
 
             List<string> messageIds = new List<string>();
             List<ReadOnlyMemory<float>> messageEmbeddings = new List<ReadOnlyMemory<float>>();
             List<Dictionary<string, object>> metadata = new List<Dictionary<string, object>>();
 
+            //generate a vector list for every item
             foreach (var item in vectorDataList)
             {
-                OpenAIEmbedding response = await client2.GenerateEmbeddingAsync(item.Data);
+                OpenAIEmbedding response = await embeddingClient.GenerateEmbeddingAsync(item.Data);
                 ReadOnlyMemory<float> vector = response.ToFloats();
                 messageEmbeddings.Add(vector);
                 messageIds.Add(Guid.NewGuid().ToString());
@@ -118,7 +128,7 @@ namespace Hackathon2025.Abstractions
 
 
             var collection = await client.GetOrCreateCollection("kitkat");
-            var collectionClient = new ChromaCollectionClient(collection, configOptions, _httpClient);
+            var collectionClient = new ChromaCollectionClient(collection, chromaOptions, _httpClient);
 
             await collectionClient.Add(messageIds, messageEmbeddings, metadata);
         }
