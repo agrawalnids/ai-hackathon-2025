@@ -1,4 +1,23 @@
-﻿<aside>
-    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary">A</MudAvatar>
+﻿@inject IJSRuntime JSRuntime;
+
+<aside>
+    <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary">@firstLetter</MudAvatar>
     <MudAvatar Style="height:70px; width:70px; font-size:2rem;" Color="Color.Primary">B</MudAvatar>
 </aside>
+
+@code {
+    private string firstLetter = "";
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender)
+        {
+            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+            if (!string.IsNullOrEmpty(cookieValue))
+            {
+                firstLetter = cookieValue.Substring(0, 1).ToUpper();
+                StateHasChanged();
+            }
+        }
+    }
+}
