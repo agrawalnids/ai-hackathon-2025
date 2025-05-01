@@ -2,7 +2,11 @@
 
 ## Introduction
 
-Taking a short break during extended coding sessions helps you regain focus and avoid getting sidetracked. However, scrolling aimlessly on your phone can easily turn into an hour-long distraction, wasting valuable work time. Introducing **MoodMate**, a handy tool designed to provide you with a structured 5-minute break, guiding you towards a more productive and refreshing pause. **MoodMate** is a gentle AI companion designed to improve your emotional well-being during short breaks. Built using C# and Microsoft ASP.NET Core Blazor, MoodMate leverages advanced AI models and vector databases to deliver personalized curated content based on your mood and preferences, with the goal of fostering positivity and mental wellness.
+Taking a short break during extended coding sessions helps you regain focus and avoid getting sidetracked. However, scrolling aimlessly on your phone can easily turn into an hour-long distraction, wasting valuable work time. 
+
+Introducing **MoodMate**, a handy tool designed to provide you with a structured 5-minute break, guiding you towards a more productive and refreshing pause. 
+
+**MoodMate** is a gentle AI companion designed to improve your emotional well-being during short breaks. Built using C# and Microsoft ASP.NET Core Blazor, MoodMate leverages advanced AI models and vector databases to deliver personalized curated content based on your mood and preferences, with the goal of fostering positivity and mental wellness.
 
 ## Description
 
