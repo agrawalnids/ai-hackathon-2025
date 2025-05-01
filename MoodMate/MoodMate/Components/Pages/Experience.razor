@@ -182,7 +182,7 @@
     {
         await JSRuntime.InvokeVoidAsync("showLoader");
 
-        var profileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+        var profileName = await localStorage.GetItemAsync<string>("profileName"); 
 
         //save all interests
         List<VectorDataModel> likedInterests = new List<VectorDataModel>();

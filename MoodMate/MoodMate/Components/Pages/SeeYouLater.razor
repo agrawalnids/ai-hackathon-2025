@@ -35,8 +35,8 @@ else
     {
         if (firstRender)
         {
-            // Set Cookie of Last Visit Timestamp
-            await JSRuntime.InvokeVoidAsync("setCookieHours", "lastVisitTimestamp", "active", "2");
+            // Set Last Visit Timestamp
+            await localStorage.SetItemAsync("lastVisitTimestamp", DateTime.UtcNow);
 
             await JSRuntime.InvokeVoidAsync("hideLoader");
 

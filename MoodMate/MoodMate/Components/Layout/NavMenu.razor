@@ -18,7 +18,7 @@
 </aside>
 
 @code {
-    private string FirstLetter = "Z";
+    private string FirstLetter = "A";
     private Origin Origin { get; set; } = Origin.TopRight;
     public string BadgeContent { get; set; } = "0";
 
@@ -31,14 +31,14 @@
     {
         if (firstRender)
         {
-            var cookieValue = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+            var cookieValue = await localStorage.GetItemAsync<string>("profileName");
             if (!string.IsNullOrEmpty(cookieValue))
             {
                 FirstLetter = cookieValue.Substring(0, 1).ToUpper();
             }
         }
 
-        var userXP = await JSRuntime.InvokeAsync<string>("getCookie", "userXP");
+        var userXP = await localStorage.GetItemAsync<string>("userXP");
         if (!string.IsNullOrEmpty(userXP))
         {
             BadgeContent = userXP;

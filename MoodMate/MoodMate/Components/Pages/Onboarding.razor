@@ -63,7 +63,7 @@
     {
         if (firstRender)
         {
-            ProfileName = await JSRuntime.InvokeAsync<string>("getCookie", "profileName");
+            ProfileName = await localStorage.GetItemAsync<string>("profileName");
 
             //Get onboarding questions ready
             await SetupOnboarding();
@@ -170,11 +170,11 @@
 
         Model.IsOnboardingComplete = true;
 
-        // Save cookie that onboarding is complete
-        await JSRuntime.InvokeVoidAsync("setCookie", "onboardingComplete", "true", "365");
+        // Save that onboarding is complete
+        await localStorage.SetItemAsync("onboardingComplete", "true");
 
         //Update user XP
-        await JSRuntime.InvokeVoidAsync("setCookie", "userXP", "10", "365");
+        await localStorage.SetItemAsync("userXP", "10");
         Snackbar.Add("Achievement Unlocked: ONBOARDED!", Severity.Success);
 
         StateHasChanged();

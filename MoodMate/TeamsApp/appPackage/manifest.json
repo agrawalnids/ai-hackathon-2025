@@ -1,52 +1,51 @@
 {
-    "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
-    "manifestVersion": "1.19",
-    "version": "1.0.0",
-    "id": "${{TEAMS_APP_ID}}",
-    "developer": {
-        "name": "Teams App, Inc.",
-        "websiteUrl": "https://www.example.com",
-        "privacyUrl": "https://www.example.com/privacy",
-        "termsOfUseUrl": "https://www.example.com/termsofuse"
-    },
-    "icons": {
-        "color": "color.png",
-        "outline": "outline.png"
-    },
-    "name": {
-        "short": "MoodMate${{APP_NAME_SUFFIX}}",
-        "full": "Full name for MoodMate"
-    },
-    "description": {
-        "short": "Short description of MoodMate",
-        "full": "Full description of MoodMate"
-    },
-    "accentColor": "#FFFFFF",
-    "bots": [],
-    "composeExtensions": [],
-    "configurableTabs": [],
-    "staticTabs": [
-        {
-            "entityId": "index",
-            "name": "Home",
-            "contentUrl": "${{TAB_ENDPOINT}}/tab",
-            "websiteUrl": "${{TAB_ENDPOINT}}/tab",
-            "scopes": [
-                "personal",
-                "groupChat",
-                "team"
-            ]
-        }
-    ],
-    "permissions": [
-        "identity",
-        "messageTeamMembers"
-    ],
-    "validDomains": [
-        "${{TAB_HOSTNAME}}"
-    ],
-    "webApplicationInfo": {
-        "id": "${{AAD_APP_CLIENT_ID}}",
-        "resource": "api://${{TAB_DOMAIN}}/${{AAD_APP_CLIENT_ID}}"
+  "$schema": "https://developer.microsoft.com/en-us/json-schemas/teams/v1.19/MicrosoftTeams.schema.json",
+  "manifestVersion": "1.19",
+  "version": "1.0.0",
+  "id": "${{TEAMS_APP_ID}}",
+  "developer": {
+    "name": "Nidhi, Zarna, Marc",
+    "websiteUrl": "https://www.example.com",
+    "privacyUrl": "https://www.example.com/privacy",
+    "termsOfUseUrl": "https://www.example.com/termsofuse"
+  },
+  "icons": {
+    "color": "color.png",
+    "outline": "outline.png"
+  },
+  "name": {
+    "short": "MoodMate",
+    "full": "MoodMate: AI-Powered 5-Minute Mood Uplift Break"
+  },
+  "description": {
+    "short": "A tool that provides you with a structured 5-minute break.",
+    "full": "Taking a short break during extended coding sessions helps you regain focus and avoid getting sidetracked. However, scrolling aimlessly on your phone can easily turn into an hour-long distraction, wasting valuable work time. MoodMate is a gentle AI companion designed to improve your emotional well-being during short breaks."
+  },
+  "accentColor": "#312667",
+  "bots": [],
+  "composeExtensions": [],
+  "configurableTabs": [],
+  "staticTabs": [
+    {
+      "entityId": "index",
+      "name": "Home",
+      "contentUrl": "${{TAB_ENDPOINT}}/tab",
+      "websiteUrl": "${{TAB_ENDPOINT}}/tab",
+      "scopes": [
+        "personal",
+        "groupChat",
+        "team"
+      ]
     }
+  ],
+  "permissions": [
+    "identity"
+  ],
+  "validDomains": [
+    "${{TAB_HOSTNAME}}"
+  ],
+  "webApplicationInfo": {
+    "id": "${{AAD_APP_CLIENT_ID}}",
+    "resource": "api://${{TAB_DOMAIN}}/${{AAD_APP_CLIENT_ID}}"
+  }
 }

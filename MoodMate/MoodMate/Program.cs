@@ -7,6 +7,7 @@ using MudBlazor;
 using MudBlazor.Services;
 using MoodMate.Abstractions;
 using MoodMate.Services;
+using Blazored.LocalStorage;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -49,6 +50,7 @@ builder.Services.AddMudServices(config =>
     config.SnackbarConfiguration.SnackbarVariant = Variant.Filled;
 });
 
+builder.Services.AddBlazoredLocalStorage();
 
 var app = builder.Build();
 
