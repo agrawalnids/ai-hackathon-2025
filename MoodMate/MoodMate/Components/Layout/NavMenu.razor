@@ -5,7 +5,7 @@
     <MudBadge Origin="@Origin" Content="@BadgeContent" Color="MudBlazor.Color.Primary" Overlap="true">
         <MudIcon Icon="@Icons.Material.Filled.Star" Color="MudBlazor.Color.Error" Style="height:70px; width:70px; font-size:2rem;" />
     </MudBadge>
-    @if (BadgeContent != "0")
+    @if (BadgeContent != "0" && IsExperienceAvailable)
     {
         <MudIconButton Href="/onboarding"
                        Icon="@Icons.Material.Filled.ChangeCircle"
@@ -21,6 +21,7 @@
     private string FirstLetter = "A";
     private Origin Origin { get; set; } = Origin.TopRight;
     public string BadgeContent { get; set; } = "0";
+    private bool IsExperienceAvailable { get; set; } = false;
 
     /// <summary>
     /// Initialize avatar icon and XP icon
@@ -37,6 +38,9 @@
                 FirstLetter = cookieValue.Substring(0, 1).ToUpper();
             }
         }
+
+        var lastVisitTimestamp = await localStorage.GetItemAsync<DateTime>("lastVisitTimestamp");
+        IsExperienceAvailable = (DateTime.UtcNow > lastVisitTimestamp.AddHours(2));
 
         var userXP = await localStorage.GetItemAsync<string>("userXP");
         if (!string.IsNullOrEmpty(userXP))
